@@ -180,3 +180,17 @@ sélection des moments critiques (phase 2) et le croisement avec les puzzles
 **Raison.** Séparer stockage brut (positions évaluées) et interprétation
 (seuils, moments) permet de recalibrer sans relancer le moteur ; la
 profondeur fixe rend l'oracle déterministe, condition du jeu d'évaluation.
+
+**Calibration du seuil (échantillon : 50 parties rapid 10|0 les plus récentes,
+profondeur 14).** Perte moyenne par coup de l'utilisateur : 77 cp (médiane 19).
+Coups de l'utilisateur ≥ seuil, par partie :
+
+| seuil | coups/partie | parties sans aucun | parties avec ≥ 4 |
+|---|---|---|---|
+| 100 cp | 5,9 | 2 / 50 | 33 |
+| **150 cp** | **4,0** | **4 / 50** | **22** |
+| 200 cp | 2,8 | 7 / 50 | 15 |
+| 300 cp | 1,8 | 15 / 50 | 6 |
+
+150 cp retenu : ≈ 2 à 4 moments par partie après plafonnement, presque aucune
+partie vide. À re-vérifier quand le niveau monte (le seuil devra baisser).
