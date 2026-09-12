@@ -121,3 +121,22 @@ réseau ; l'API Chess.com est publique et sans clé, `requests` n'apporte rien.
 - Version de Python : le brief vise 3.12 ; l'environnement de développement du
   jour est en 3.11, `pyproject.toml` déclare donc `>=3.11`. Aucun code ne
   dépend de 3.12.
+
+---
+
+## Phase 0 — critère de sortie atteint (2026-09-12)
+
+Ingestion complète de `Kuga06` : **1285 parties** (2018-12 → 2026-09), 70 881
+coups, 11 horloges manquantes seulement, 0 désaccord entre le parseur maison et
+python-chess sur les 1285 PGN rejoués. Base locale `data/chesscoach.sqlite`
+(hors git).
+
+Faits utiles pour la phase 1 :
+- Cadences : rapid 10|0 = 597 parties, rapid 15|10 = 314, blitz 5|0 = 100,
+  daily = 51. Le rapport ciblera **rapid 10|0 par défaut** (cadence du brief).
+- Elo rapid depuis 2025-08 : 710–902, moyenne 786.
+- 602 victoires / 657 défaites / 26 nulles ; mêmes proportions blancs et noirs.
+- 268 parties où l'utilisateur descend sous 60 s : `time_pressure` aura de la
+  matière.
+- Un adversaire récurrent (`croustijon`, ~100 parties) : à surveiller pour ne
+  pas biaiser les statistiques d'ouverture.
