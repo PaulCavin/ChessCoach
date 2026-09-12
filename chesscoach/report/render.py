@@ -47,7 +47,7 @@ def render(r: Report) -> str:
     out.append("")
 
     out += [
-        f"## 2. Moments critiques par type d'erreur ({r.total_moments} moments, perte ≥ 150 cp, ≤ 4 par partie)",
+        f"## 2. Moments critiques par type d'erreur ({r.total_moments} moments, perte ≥ 100 cp, ≤ 4 par partie)",
         "",
         "| Type | Moments | Part | Perte moyenne | Ouverture | Milieu | Finale |",
         "|---|---:|---:|---:|---:|---:|---:|",

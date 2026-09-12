@@ -15,7 +15,7 @@ from dataclasses import dataclass
 MATE_CP = 1000  # borne des mats, comme Lichess
 INACCURACY_CP = 50
 MISTAKE_CP = 100
-CRITICAL_CP = 150  # seuil « moment critique » (D-005, à calibrer)
+CRITICAL_CP = 100  # seuil « moment critique » (D-005, validé à 100 cp)
 BLUNDER_CP = 300
 
 

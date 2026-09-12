@@ -199,8 +199,12 @@ Coups de l'utilisateur ≥ seuil, par partie :
 | 200 cp | 2,8 | 7 / 50 | 15 |
 | 300 cp | 1,8 | 15 / 50 | 6 |
 
-150 cp retenu : ≈ 2 à 4 moments par partie après plafonnement, presque aucune
-partie vide. À re-vérifier quand le niveau monte (le seuil devra baisser).
+**Décision utilisateur (2026-09-12) : seuil abaissé à 100 cp.** Le plafond de
+4 moments par partie (les 4 plus grosses pertes) fait que le seuil n'ajoute
+des moments que dans les parties calmes ; sous 100 cp on entrerait dans la
+marge d'incertitude du moteur à profondeur 14 et dans des nuances que
+l'explication ne pourrait pas justifier sans inventer. Résultat sur 599
+parties rapid 10|0 : 2055 moments (3,4 par partie).
 
 ---
 

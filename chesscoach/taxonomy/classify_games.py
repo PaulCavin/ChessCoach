@@ -1,6 +1,6 @@
 """Batch : évals + coups -> moments critiques classés (table ``critical_moments``).
 
-Usage : ``python -m chesscoach.taxonomy.classify_games --username Kuga06 [--db ...] [--threshold 150]``
+Usage : ``python -m chesscoach.taxonomy.classify_games --username Kuga06 [--db ...] [--threshold 100]``
 Recalcule tout à chaque exécution (dérivé pur, quelques secondes pour 600 parties).
 """
 
