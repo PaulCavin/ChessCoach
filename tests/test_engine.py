@@ -53,8 +53,8 @@ def test_critical_moments_filters_user_color_and_ranks():
     losses = [
         loss(1, "white", 500),
         loss(2, "black", 200),
-        loss(3, "white", 149),
-        loss(4, "black", 150),
+        loss(3, "white", 99),
+        loss(4, "black", 100),
         loss(6, "black", 400),
         loss(8, "black", 999),
         loss(10, "black", 998),
