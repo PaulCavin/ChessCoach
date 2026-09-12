@@ -11,3 +11,4 @@ memory/learner/*.md
 .env
 bin/
 
+reports/

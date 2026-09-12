@@ -194,3 +194,61 @@ Coups de l'utilisateur ≥ seuil, par partie :
 
 150 cp retenu : ≈ 2 à 4 moments par partie après plafonnement, presque aucune
 partie vide. À re-vérifier quand le niveau monte (le seuil devra baisser).
+
+---
+
+## D-006 — Règles de classification déterministes et table `critical_moments` (2026-09-12, adoptée, à valider)
+
+**Contexte.** Le diagnostic doit ranger chaque moment critique dans la
+taxonomie D-001 sans LLM. Il faut des règles vérifiables, ordonnées, et une
+table requêtable pour le rapport et les phases 2-3.
+
+**Choix.** `chesscoach/taxonomy/classify.py` : une fonction par tag, entrée =
+position avant le coup, coup joué, éval avant/après, meilleure réponse adverse
+(tirée de `evals`), horloge. **La première règle qui s'applique gagne**, dans
+cet ordre :
+
+| # | Tag | Règle (python-chess + évals) |
+|---|---|---|
+| 1 | `missed_mate` | mat forcé pour l'utilisateur avant le coup, plus après |
+| 2 | `hanging_piece` | la meilleure réponse adverse capture une pièce (hors pion) non défendue ou par une pièce de moindre valeur, et cette capture **n'existait pas** avant le coup (coup nul) ; exclu si le coup joué était une capture sur la même case (échange) |
+| 3 | `ignored_threat` | même capture gagnante, mais elle **existait déjà** avant le coup |
+| 4 | `unnecessary_exchange` | coup = capture, reprise adverse sur la même case, pièce prise de valeur ≤ pièce donnée |
+| 5 | `king_safety` | la meilleure réponse est un échec **sans capture**, ou le coup avance un pion du bouclier (colonne du roi ± 1) alors que le roque n'est plus possible |
+| 6 | `endgame_technique` | matériel hors pions ≤ 13 points pour les deux camps (toute erreur en finale non tactique) |
+| 7 | `opening_principle` | ply < 20, le meilleur coup développe (pièce depuis sa rangée initiale ou roque) et pas le coup joué |
+| 8 | `passive_piece` | aucune capture ni échec dans le coup joué, le meilleur coup ou la réponse ; le meilleur coup avance une pièce, le coup joué est un pion ou un recul |
+| 9 | `calculation_error` | tout le reste |
+| + | `time_pressure` | **tag secondaire**, ajouté quand l'horloge < 60 s après le coup |
+
+Points à valider :
+- **Un tag principal + `time_pressure` en secondaire** plutôt qu'un tag unique :
+  la zeitnot est orthogonale au type d'erreur. Stocké `tags = "primaire,time_pressure"`.
+- `calculation_error` en finale est impossible par construction (règle 6 prime)
+  : « technique de finale » = « erreur en finale sans motif tactique clair ».
+- Phase de la partie : ouverture si ply < 20, finale selon la règle 6, milieu sinon.
+
+Premier passage sur 437 parties rapid 10|0 : calculation_error 40 %,
+king_safety 17 %, ignored_threat 13 %, hanging_piece 8 %, unnecessary_exchange
+7 %, endgame_technique 6 %, missed_mate 4 %, opening_principle 2 %,
+passive_piece 2 %. La règle `king_safety` initiale (tout échec, tout pion
+devant un roi non roqué) sortait 28 % : resserrée après lecture de 10 cas.
+
+**Raison.** Des règles lisibles et falsifiables : chaque tag peut être
+contesté position par position, et un désaccord devient un cas du jeu
+d'évaluation. `passive_piece` et `calculation_error` restent les plus faibles ;
+à revoir avec les cas réels de phase 2.
+
+Table `critical_moments` (schéma v3) : dérivée, effacée et recalculée à chaque
+`python -m chesscoach.taxonomy.classify_games`.
+
+---
+
+## D-007 — Module `report/` (2026-09-12, adoptée)
+
+Ajout au squelette cible : `chesscoach/report/` (agrégation pure + rendu
+Markdown). Le rapport de phase 1 n'a pas sa place dans `cli/` (point d'entrée
+de session, phase 2) ni dans `taxonomy/`. Sortie : `reports/<username>.md`
+(hors git). Sections : phase, type d'erreur (avec les 3 pires positions par
+type, FEN + lien), horloge, ouvertures, évolution mensuelle. Aucune phrase
+d'interprétation : des chiffres et des positions.

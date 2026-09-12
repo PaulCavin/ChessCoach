@@ -4,7 +4,7 @@ Coach d'échecs personnalisé, opensource, local et gratuit, construit à partir
 vos parties Chess.com. Principe non négociable : **le LLM formule, il ne juge
 jamais** — chaque fait sur une position vient de Stockfish ou de python-chess.
 
-État : **phase 0 — corpus** (ingestion + taxonomie figée).
+État : **phase 1 — analyse** (moteur, classification, rapport agrégé sans LLM).
 
 ## Installation
 
@@ -23,6 +23,19 @@ python -m chesscoach.ingest.chesscom <username> --since 2025-01 --until 2025-06
 Chaque mois d'archive est téléchargé une seule fois (table `archive_months`) ;
 relancer la commande ne crée pas de doublons.
 
+## Analyse moteur et rapport
+
+Stockfish : binaire dans `bin/stockfish-bin` (ou `$CHESSCOACH_STOCKFISH`, ou dans le PATH).
+
+```bash
+# 1. une éval Stockfish par position (profondeur 14, 4 processus), idempotent
+python -m chesscoach.engine.analyse --username <username> --time-class rapid --time-control 600 --workers 4
+# 2. moments critiques classés dans la taxonomie (recalculé à chaque fois)
+python -m chesscoach.taxonomy.classify_games --username <username>
+# 3. rapport Markdown
+python -m chesscoach.report --username <username> --time-class rapid --time-control 600 --out reports/<username>.md
+```
+
 ## Requêter le corpus
 
 ```bash
@@ -36,7 +49,7 @@ sqlite3 data/chesscoach.sqlite \
 pytest
 ```
 
-Les tests de phase 0 tournent sans Stockfish, sans LLM et sans réseau.
+Les tests tournent sans LLM et sans réseau ; un seul test utilise Stockfish et est sauté s'il est absent.
 
 ## Documentation
 

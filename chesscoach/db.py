@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -86,6 +86,27 @@ CREATE TABLE IF NOT EXISTS analysed_games (
     depth           INTEGER NOT NULL,
     analysed_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
+
+-- Phase 1 (D-006). Moments critiques de l'utilisateur, classés. Dérivé de evals + moves :
+-- recalculable à tout moment (python -m chesscoach.taxonomy.classify_games).
+CREATE TABLE IF NOT EXISTS critical_moments (
+    game_id         TEXT NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+    ply             INTEGER NOT NULL,           -- coup joué par l'utilisateur
+    rank            INTEGER NOT NULL,           -- 1 = plus grosse perte de la partie
+    san             TEXT NOT NULL,
+    fen_before      TEXT NOT NULL,
+    best_move       TEXT,                       -- UCI
+    before_cp       INTEGER NOT NULL,           -- point de vue de l'utilisateur
+    after_cp        INTEGER NOT NULL,
+    loss            INTEGER NOT NULL,
+    severity        TEXT NOT NULL,              -- inaccuracy / mistake / blunder
+    phase           TEXT NOT NULL CHECK (phase IN ('opening', 'middlegame', 'endgame')),
+    clock_seconds   REAL,
+    primary_tag     TEXT NOT NULL,
+    tags            TEXT NOT NULL,              -- tags séparés par des virgules (primaire en premier)
+    PRIMARY KEY (game_id, ply)
+);
+CREATE INDEX IF NOT EXISTS idx_cm_tag ON critical_moments (primary_tag);
 """
 
 
