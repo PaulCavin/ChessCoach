@@ -9,3 +9,5 @@ data/lichess_db_puzzle.csv
 memory/learner/*.md
 !memory/learner/.gitkeep
 .env
+bin/
+

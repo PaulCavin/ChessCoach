@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -64,6 +64,28 @@ CREATE TABLE IF NOT EXISTS archive_months (
     fetched_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     PRIMARY KEY (username, year, month)
 );
+
+-- Phase 1 (D-005). Une ligne par position *avant* chaque coup joué (ply = coup à venir),
+-- plus une ligne ply = ply_count + 1 pour la position finale. Scores du point de vue des blancs.
+CREATE TABLE IF NOT EXISTS evals (
+    game_id         TEXT NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+    ply             INTEGER NOT NULL,
+    fen             TEXT NOT NULL,
+    score_cp        INTEGER,                    -- centipions, NULL si mat annoncé
+    mate_in         INTEGER,                    -- +n : blancs matent en n ; -n : noirs
+    best_move       TEXT,                       -- UCI, NULL en position terminale
+    best_pv         TEXT,                       -- UCI séparés par des espaces
+    depth           INTEGER NOT NULL,
+    PRIMARY KEY (game_id, ply)
+);
+
+-- Parties déjà analysées (idempotence + traçabilité moteur/profondeur).
+CREATE TABLE IF NOT EXISTS analysed_games (
+    game_id         TEXT PRIMARY KEY REFERENCES games (id) ON DELETE CASCADE,
+    engine          TEXT NOT NULL,
+    depth           INTEGER NOT NULL,
+    analysed_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
 """
 
 
@@ -83,6 +105,10 @@ def init_schema(conn: sqlite3.Connection) -> None:
     row = conn.execute("SELECT version FROM schema_version").fetchone()
     if row is None:
         conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
-    elif row["version"] != SCHEMA_VERSION:
-        raise RuntimeError(f"Schéma en version {row['version']}, attendu {SCHEMA_VERSION} : migration requise.")
+    elif row["version"] < SCHEMA_VERSION:
+        # Les versions successives sont additives (CREATE IF NOT EXISTS) : le script ci-dessus vient de
+        # créer les tables manquantes. Une migration destructive devra être explicite.
+        conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
+    elif row["version"] > SCHEMA_VERSION:
+        raise RuntimeError(f"Base en version {row['version']}, plus récente que le code ({SCHEMA_VERSION}).")
     conn.commit()

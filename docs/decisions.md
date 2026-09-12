@@ -140,3 +140,43 @@ Faits utiles pour la phase 1 :
   matière.
 - Un adversaire récurrent (`croustijon`, ~100 parties) : à surveiller pour ne
   pas biaiser les statistiques d'ouverture.
+
+---
+
+## D-005 — Oracle moteur : éval par position, table `evals`, seuils (2026-09-12, adoptée)
+
+**Contexte.** Phase 1 : chaque fait sur une position doit venir de Stockfish.
+Il faut une éval par coup, stockée, réutilisable par le rapport (phase 1), la
+sélection des moments critiques (phase 2) et le croisement avec les puzzles
+(phase 3).
+
+**Options.**
+1. Analyser à la volée en session — rejetée : 70 coups × 0,2 s à chaque
+   ouverture de partie, et impossible d'agréger sur 600 parties.
+2. Stocker seulement les moments critiques — rejetée : un changement de seuil
+   obligerait à tout recalculer.
+3. **Une ligne par position dans `evals`** (schéma v2, additif), les pertes et
+   moments critiques recalculés en pur Python (`engine/analysis.py`) — retenue.
+
+**Choix.**
+- Stockfish 17.1, binaire dans `bin/` (hors git) ou `$CHESSCOACH_STOCKFISH`,
+  1 thread / 64 Mo par processus, N processus = N parties en parallèle.
+- **Profondeur fixe 14** (≈ 0,1–0,4 s/position). Reproductible, contrairement
+  à une limite en temps.
+- `evals(game_id, ply)` = position *avant* le coup `ply` ; `ply_count + 1`
+  lignes par partie. Score du point de vue des blancs : `score_cp` ou
+  `mate_in` (signé), `mate_in = 0` pour une position finale matée.
+- Mats bornés à **±1000 cp** pour les calculs de perte (convention Lichess).
+- Perte d'un coup = éval avant − éval après, du point de vue du joueur,
+  bornée à 0. Seuils : inexactitude 50, erreur 100, gaffe 300 (Lichess) ;
+  **moment critique = perte ≥ 150 cp**, au plus 4 par partie, triés par perte.
+  Le seuil 150 est une hypothèse à calibrer sur l'échantillon (voir ci-dessous).
+- `analysed_games` trace moteur + profondeur : relancer n'analyse que les
+  parties manquantes ; changer de profondeur = vider cette table.
+- Migration de schéma : additive uniquement (`CREATE IF NOT EXISTS`), la
+  version en base est relevée automatiquement. Une migration destructive
+  sera une décision explicite.
+
+**Raison.** Séparer stockage brut (positions évaluées) et interprétation
+(seuils, moments) permet de recalibrer sans relancer le moteur ; la
+profondeur fixe rend l'oracle déterministe, condition du jeu d'évaluation.
