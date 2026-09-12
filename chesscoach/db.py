@@ -10,16 +10,19 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
+MIN_COMPATIBLE_VERSION = 4  # v4 a changé la clé des parties : base < 4 -> supprimer et ré-ingérer
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (
     version     INTEGER NOT NULL
 );
 
--- Une ligne par partie. Clé = URL Chess.com (stable, unique par partie).
+-- Une ligne par partie (D-002 révisée).
 CREATE TABLE IF NOT EXISTS games (
-    id              TEXT PRIMARY KEY,           -- URL de la partie sur Chess.com
+    id              INTEGER PRIMARY KEY,        -- clé interne
+    url             TEXT NOT NULL UNIQUE,       -- lien de la partie sur Chess.com (information)
+    game_number     INTEGER,                    -- n° chronologique de la partie pour ce compte (1 = première jouée)
     username        TEXT NOT NULL,              -- compte ingéré (l'apprenant)
     user_color      TEXT NOT NULL CHECK (user_color IN ('white', 'black')),
     white           TEXT NOT NULL,
@@ -42,11 +45,12 @@ CREATE TABLE IF NOT EXISTS games (
     ingested_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_games_user_time ON games (username, end_time);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_games_user_number ON games (username, game_number);
 CREATE INDEX IF NOT EXISTS idx_games_time_class ON games (time_class);
 
 -- Un coup par ligne. ply 1 = premier coup blanc.
 CREATE TABLE IF NOT EXISTS moves (
-    game_id         TEXT NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+    game_id         INTEGER NOT NULL REFERENCES games (id) ON DELETE CASCADE,
     ply             INTEGER NOT NULL,
     move_number     INTEGER NOT NULL,           -- numéro affiché dans le PGN
     color           TEXT NOT NULL CHECK (color IN ('white', 'black')),
@@ -68,7 +72,7 @@ CREATE TABLE IF NOT EXISTS archive_months (
 -- Phase 1 (D-005). Une ligne par position *avant* chaque coup joué (ply = coup à venir),
 -- plus une ligne ply = ply_count + 1 pour la position finale. Scores du point de vue des blancs.
 CREATE TABLE IF NOT EXISTS evals (
-    game_id         TEXT NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+    game_id         INTEGER NOT NULL REFERENCES games (id) ON DELETE CASCADE,
     ply             INTEGER NOT NULL,
     fen             TEXT NOT NULL,
     score_cp        INTEGER,                    -- centipions, NULL si mat annoncé
@@ -81,7 +85,7 @@ CREATE TABLE IF NOT EXISTS evals (
 
 -- Parties déjà analysées (idempotence + traçabilité moteur/profondeur).
 CREATE TABLE IF NOT EXISTS analysed_games (
-    game_id         TEXT PRIMARY KEY REFERENCES games (id) ON DELETE CASCADE,
+    game_id         INTEGER PRIMARY KEY REFERENCES games (id) ON DELETE CASCADE,
     engine          TEXT NOT NULL,
     depth           INTEGER NOT NULL,
     analysed_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
@@ -90,7 +94,7 @@ CREATE TABLE IF NOT EXISTS analysed_games (
 -- Phase 1 (D-006). Moments critiques de l'utilisateur, classés. Dérivé de evals + moves :
 -- recalculable à tout moment (python -m chesscoach.taxonomy.classify_games).
 CREATE TABLE IF NOT EXISTS critical_moments (
-    game_id         TEXT NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+    game_id         INTEGER NOT NULL REFERENCES games (id) ON DELETE CASCADE,
     ply             INTEGER NOT NULL,           -- coup joué par l'utilisateur
     rank            INTEGER NOT NULL,           -- 1 = plus grosse perte de la partie
     san             TEXT NOT NULL,
@@ -122,8 +126,14 @@ def connect(path: str | Path) -> sqlite3.Connection:
 
 
 def init_schema(conn: sqlite3.Connection) -> None:
+    has_version = conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'schema_version'").fetchone()
+    row = conn.execute("SELECT version FROM schema_version").fetchone() if has_version else None
+    if row is not None and row["version"] < MIN_COMPATIBLE_VERSION:
+        raise RuntimeError(
+            f"Base en version {row['version']}, incompatible (minimum {MIN_COMPATIBLE_VERSION}) : "
+            "supprimer le fichier et relancer l'ingestion (python -m chesscoach.ingest.chesscom <username>)."
+        )
     conn.executescript(SCHEMA)
-    row = conn.execute("SELECT version FROM schema_version").fetchone()
     if row is None:
         conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
     elif row["version"] < SCHEMA_VERSION:

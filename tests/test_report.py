@@ -36,7 +36,7 @@ def test_report_on_fixture(sample_pgn_text):
     conn = db.connect(":memory:")
     g1, g2 = split_games(sample_pgn_text)
     # L'utilisateur est "coachtest" : gagne g1 (blancs), perd g2 (noirs, mat du berger).
-    store_game(
+    id1 = store_game(
         conn,
         "coachtest",
         {
@@ -51,7 +51,7 @@ def test_report_on_fixture(sample_pgn_text):
             "black": {"username": "opponent_one", "result": "checkmated"},
         },
     )
-    store_game(
+    id2 = store_game(
         conn,
         "coachtest",
         {
@@ -66,8 +66,8 @@ def test_report_on_fixture(sample_pgn_text):
             "black": {"username": "coachtest", "result": "checkmated", "rating": 905},
         },
     )
-    store_evals(conn, "https://x/1", _fake_evals(g1, 10), "fake", 1)
-    store_evals(conn, "https://x/2", _fake_evals(g2, 6), "fake", 1)  # 3... Nf6?? (ply 6) permet Dxf7#
+    store_evals(conn, id1, _fake_evals(g1, 10), "fake", 1)
+    store_evals(conn, id2, _fake_evals(g2, 6), "fake", 1)  # 3... Nf6?? (ply 6) permet Dxf7#
     classify_all(conn, "coachtest")
 
     r = build_report(conn, "coachtest", time_class="rapid")

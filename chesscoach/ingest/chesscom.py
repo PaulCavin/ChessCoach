@@ -83,7 +83,7 @@ def game_row(username: str, game_json: dict[str, Any], game: Game) -> dict[str, 
         return int(value) if value not in (None, "", "?") else None
 
     return {
-        "id": game_json.get("url") or game.headers.get("Link") or game.headers.get("Site"),
+        "url": game_json.get("url") or game.headers.get("Link") or game.headers.get("Site"),
         "username": username,
         "user_color": color,
         "white": white,
@@ -106,31 +106,40 @@ def game_row(username: str, game_json: dict[str, Any], game: Game) -> dict[str, 
     }
 
 
-def store_game(conn: sqlite3.Connection, username: str, game_json: dict[str, Any]) -> bool:
-    """Insère une partie et ses coups. Retourne False si déjà présente (ou sans PGN)."""
+def store_game(conn: sqlite3.Connection, username: str, game_json: dict[str, Any]) -> int | None:
+    """Insère une partie et ses coups. Retourne son id interne, ou None si déjà présente (ou sans PGN)."""
     pgn = game_json.get("pgn")
     if not pgn:
-        return False
+        return None
     game = parse_game(pgn)
     row = game_row(username, game_json, game)
-    if not row["id"]:
-        return False
-    if conn.execute("SELECT 1 FROM games WHERE id = ?", (row["id"],)).fetchone():
-        return False
+    if not row["url"]:
+        return None
+    if conn.execute("SELECT 1 FROM games WHERE url = ?", (row["url"],)).fetchone():
+        return None
     columns = ", ".join(row)
     placeholders = ", ".join(f":{k}" for k in row)
-    conn.execute(f"INSERT INTO games ({columns}) VALUES ({placeholders})", row)
+    cur = conn.execute(f"INSERT INTO games ({columns}) VALUES ({placeholders})", row)
+    game_id = cur.lastrowid
     conn.executemany(
         "INSERT INTO moves (game_id, ply, move_number, color, san, clock_seconds) VALUES (?, ?, ?, ?, ?, ?)",
-        [(row["id"], m.ply, m.move_number, m.color, m.san, m.clock_seconds) for m in game.moves],
+        [(game_id, m.ply, m.move_number, m.color, m.san, m.clock_seconds) for m in game.moves],
     )
-    return True
+    return game_id
+
+
+def renumber_games(conn: sqlite3.Connection, username: str) -> None:
+    """Attribue game_number = rang chronologique (1 = première partie jouée) sur tout le compte."""
+    conn.execute("UPDATE games SET game_number = NULL WHERE username = ?", (username,))
+    ids = [r["id"] for r in conn.execute("SELECT id FROM games WHERE username = ? ORDER BY end_time, id", (username,))]
+    conn.executemany("UPDATE games SET game_number = ? WHERE id = ?", [(n, gid) for n, gid in enumerate(ids, 1)])
+    conn.commit()
 
 
 def ingest_month(conn: sqlite3.Connection, username: str, year: int, month: int, fetch: FetchJson = fetch_json) -> int:
     """Télécharge et stocke un mois ; retourne le nombre de nouvelles parties."""
     games = fetch_month(username, year, month, fetch)
-    inserted = sum(store_game(conn, username, g) for g in games)
+    inserted = sum(store_game(conn, username, g) is not None for g in games)
     conn.execute(
         "INSERT OR REPLACE INTO archive_months (username, year, month, game_count) VALUES (?, ?, ?, ?)",
         (username, year, month, len(games)),
@@ -173,6 +182,7 @@ def ingest(
         n = ingest_month(conn, username, year, month, fetch)
         total += n
         log(f"{year}-{month:02d} : {n} nouvelle(s) partie(s)")
+    renumber_games(conn, username)
     return total
 
 

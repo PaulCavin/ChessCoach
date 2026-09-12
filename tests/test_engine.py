@@ -86,16 +86,16 @@ def test_analyse_fixture_game_roundtrip(sample_pgn_text):
 
     conn = db.connect(":memory:")
     conn.execute(
-        "INSERT INTO games (id, username, user_color, white, black, result, user_result, ply_count, pgn)"
-        " VALUES ('g', 'u', 'white', 'a', 'b', '1-0', 'win', ?, ?)",
+        "INSERT INTO games (id, url, username, user_color, white, black, result, user_result, ply_count, pgn)"
+        " VALUES (7, 'u/1', 'u', 'white', 'a', 'b', '1-0', 'win', ?, ?)",
         (game.ply_count, game.pgn),
     )
-    store_evals(conn, "g", evals, "sf", 10)
-    assert load_evals(conn, "g") == evals
-    assert conn.execute("SELECT depth FROM analysed_games WHERE game_id = 'g'").fetchone()[0] == 10
+    store_evals(conn, 7, evals, "sf", 10)
+    assert load_evals(conn, 7) == evals
+    assert conn.execute("SELECT depth FROM analysed_games WHERE game_id = 7").fetchone()[0] == 10
 
 
-def test_schema_v1_database_is_upgraded(tmp_path):
+def test_incompatible_old_database_is_refused(tmp_path):
     import sqlite3
 
     path = tmp_path / "old.sqlite"
@@ -103,6 +103,13 @@ def test_schema_v1_database_is_upgraded(tmp_path):
     raw.executescript("CREATE TABLE schema_version (version INTEGER NOT NULL); INSERT INTO schema_version VALUES (1);")
     raw.commit()
     raw.close()
+    with pytest.raises(RuntimeError, match="incompatible"):
+        db.connect(path)
+
+
+def test_current_database_reopens_and_keeps_version(tmp_path):
+    path = tmp_path / "cur.sqlite"
+    db.connect(path).close()
     conn = db.connect(path)
     assert conn.execute("SELECT version FROM schema_version").fetchone()[0] == db.SCHEMA_VERSION
     assert conn.execute("SELECT count(*) FROM evals").fetchone()[0] == 0

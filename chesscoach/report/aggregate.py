@@ -57,7 +57,8 @@ class PhaseStats:
 
 @dataclass
 class Example:
-    game_id: str
+    url: str
+    game_number: int | None
     played_at: str | None
     ply: int
     san: str
@@ -192,7 +193,7 @@ def build_report(
 
     tags = {t.value: TagStats() for t in Tag}
     moments = conn.execute(
-        f"""SELECT cm.*, g.played_at FROM critical_moments cm JOIN games g ON g.id = cm.game_id
+        f"""SELECT cm.*, g.played_at, g.url, g.game_number FROM critical_moments cm JOIN games g ON g.id = cm.game_id
             WHERE g.username = ? AND g.rules = 'chess'{where} ORDER BY cm.loss DESC""",
         [username, *params],
     ).fetchall()
@@ -209,7 +210,8 @@ def build_report(
             best = chess.Move.from_uci(r["best_move"]) if r["best_move"] else None
             ts.examples.append(
                 Example(
-                    game_id=r["game_id"],
+                    url=r["url"],
+                    game_number=r["game_number"],
                     played_at=r["played_at"],
                     ply=r["ply"],
                     san=r["san"],

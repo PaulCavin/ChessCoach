@@ -48,7 +48,7 @@ quelles en SQLite et dans la mémoire d'apprenant, donc jamais renommées.
 
 ---
 
-## D-002 — Schéma SQLite : brut d'abord, dérivé ensuite (2026-09-12, à valider)
+## D-002 — Schéma SQLite : brut d'abord, dérivé ensuite (2026-09-12, validée le 2026-09-12, révisée)
 
 **Contexte.** Phase 0 exige 100+ parties requêtables en SQL. Les phases 1-3
 ajouteront évals, moments critiques, tags, sessions.
@@ -65,7 +65,14 @@ ajouteront évals, moments critiques, tags, sessions.
 
 **Choix.** Voir `chesscoach/db.py` (`SCHEMA`, `schema_version = 1`).
 Points notables :
-- `games.id` = URL Chess.com de la partie (stable, unique).
+- ~~`games.id` = URL Chess.com~~ **Révision (validation utilisateur)** : `games.id`
+  est une clé interne entière ; l'URL Chess.com est conservée comme information
+  (`games.url`, unique) ; **`games.game_number`** numérote les parties dans
+  l'ordre chronologique où elles ont été jouées sur Chess.com (1 = première
+  partie du compte), recalculé après chaque ingestion. C'est ce numéro qui sert
+  à désigner une partie dans les rapports et les sessions (« partie n° 412 »),
+  le lien restant cliquable. Schéma v4 ; les bases < 4 sont refusées
+  (supprimer le fichier et ré-ingérer : ~1 min + ré-analyse).
 - `user_color` / `user_result` dénormalisés pour que le rapport de phase 1
   soit une requête SQL simple.
 - `moves.clock_seconds` = temps restant *après* le coup (`[%clk]`), en
@@ -77,9 +84,9 @@ Points notables :
 exiger de re-télécharger. Séparer brut et dérivé garde `ingest/` testable sans
 moteur ni python-chess.
 
-**À valider par l'utilisateur** (le brief demande une question avant toute
-décision engageant le schéma) : le nommage et la dénormalisation ci-dessus.
-Changement = migration + incrément de `SCHEMA_VERSION`.
+Validé par l'utilisateur le 2026-09-12 (dénormalisation `user_color` /
+`user_result`, horloge « après le coup », dérivé séparé du brut), avec la
+révision ci-dessus sur l'identifiant des parties.
 
 ---
 
@@ -197,7 +204,7 @@ partie vide. À re-vérifier quand le niveau monte (le seuil devra baisser).
 
 ---
 
-## D-006 — Règles de classification déterministes et table `critical_moments` (2026-09-12, adoptée, à valider)
+## D-006 — Règles de classification déterministes et table `critical_moments` (2026-09-12, validée)
 
 **Contexte.** Le diagnostic doit ranger chaque moment critique dans la
 taxonomie D-001 sans LLM. Il faut des règles vérifiables, ordonnées, et une
@@ -221,7 +228,7 @@ cet ordre :
 | 9 | `calculation_error` | tout le reste |
 | + | `time_pressure` | **tag secondaire**, ajouté quand l'horloge < 60 s après le coup |
 
-Points à valider :
+Points validés par l'utilisateur le 2026-09-12 :
 - **Un tag principal + `time_pressure` en secondaire** plutôt qu'un tag unique :
   la zeitnot est orthogonale au type d'erreur. Stocké `tags = "primaire,time_pressure"`.
 - `calculation_error` en finale est impossible par construction (règle 6 prime)

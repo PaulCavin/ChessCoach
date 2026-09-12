@@ -128,7 +128,7 @@ def test_classify_game_end_to_end_without_engine(sample_pgn_text):
     from chesscoach.ingest.pgn import split_games
 
     pgn = split_games(sample_pgn_text)[0]
-    store_game(
+    game_id = store_game(
         conn,
         "opponent_one",
         {
@@ -151,7 +151,7 @@ def test_classify_game_end_to_end_without_engine(sample_pgn_text):
             best = moves[i].uci() if i >= 10 else None
             evals.append(PositionEval(board.fen(), 0 if mate is None else None, mate, 1, best, best or ""))
             board.push(moves[i])
-    store_evals(conn, "g1", evals, "fake", 1)
+    store_evals(conn, game_id, evals, "fake", 1)
     assert classify_all(conn, "opponent_one") == 1
     row = conn.execute("SELECT * FROM critical_moments").fetchone()
     assert (row["ply"], row["san"], row["rank"], row["phase"]) == (10, "Bxd1", 1, "opening")

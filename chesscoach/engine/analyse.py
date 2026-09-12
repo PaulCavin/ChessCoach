@@ -44,7 +44,7 @@ def select_games(
     time_class: str | None = None,
     time_control: str | None = None,
     limit: int | None = None,
-) -> list[tuple[str, str]]:
+) -> list[tuple[int, str]]:
     """(id, pgn) des parties standard non encore analysées, les plus récentes d'abord."""
     sql = """
         SELECT g.id, g.pgn FROM games g
@@ -66,7 +66,7 @@ def select_games(
 
 
 def store_evals(
-    conn: sqlite3.Connection, game_id: str, evals: list[PositionEval], engine_name: str, depth: int
+    conn: sqlite3.Connection, game_id: int, evals: list[PositionEval], engine_name: str, depth: int
 ) -> None:
     conn.executemany(
         "INSERT OR REPLACE INTO evals (game_id, ply, fen, score_cp, mate_in, best_move, best_pv, depth)"
@@ -90,7 +90,7 @@ def _stored_mate(e: PositionEval) -> int | None:
     return e.mate_in
 
 
-def load_evals(conn: sqlite3.Connection, game_id: str) -> list[PositionEval]:
+def load_evals(conn: sqlite3.Connection, game_id: int) -> list[PositionEval]:
     """Relit les évals d'une partie dans l'ordre des plies (inverse de store_evals)."""
     rows = conn.execute("SELECT * FROM evals WHERE game_id = ? ORDER BY ply", (game_id,)).fetchall()
     result = []
@@ -124,7 +124,7 @@ def _worker_init(binary: str | None, depth: int) -> None:
     _worker_depth = depth
 
 
-def _worker_run(item: tuple[str, str]) -> tuple[str, list[PositionEval], str]:
+def _worker_run(item: tuple[int, str]) -> tuple[int, list[PositionEval], str]:
     assert _worker_engine is not None
     game_id, pgn = item
     return game_id, analyse_pgn(pgn, _worker_engine, _worker_depth), _worker_engine.name
@@ -132,7 +132,7 @@ def _worker_run(item: tuple[str, str]) -> tuple[str, list[PositionEval], str]:
 
 def analyse_games(
     conn: sqlite3.Connection,
-    items: list[tuple[str, str]],
+    items: list[tuple[int, str]],
     *,
     depth: int = DEFAULT_DEPTH,
     workers: int = 1,
@@ -148,14 +148,14 @@ def analyse_games(
             for game_id, pgn in items:
                 store_evals(conn, game_id, analyse_pgn(pgn, sf, depth), sf.name, depth)
                 done += 1
-                log(f"[{done}/{len(items)}] {game_id} ({time.time() - start:.0f}s)")
+                log(f"[{done}/{len(items)}] partie #{game_id} ({time.time() - start:.0f}s)")
         return done
     ctx = multiprocessing.get_context("spawn")
     with ctx.Pool(workers, initializer=_worker_init, initargs=(binary, depth)) as pool:
         for game_id, evals, name in pool.imap_unordered(_worker_run, items):
             store_evals(conn, game_id, evals, name, depth)
             done += 1
-            log(f"[{done}/{len(items)}] {game_id} ({time.time() - start:.0f}s)")
+            log(f"[{done}/{len(items)}] partie #{game_id} ({time.time() - start:.0f}s)")
     return done
 
 

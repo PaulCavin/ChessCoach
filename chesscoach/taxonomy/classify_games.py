@@ -26,7 +26,7 @@ def game_phase(board_before: chess.Board) -> str:
 
 
 def classify_game(
-    conn: sqlite3.Connection, game_id: str, user_color: str, *, threshold: int = CRITICAL_CP
+    conn: sqlite3.Connection, game_id: int, user_color: str, *, threshold: int = CRITICAL_CP
 ) -> list[tuple[CriticalMoment, Classification, str]]:
     """Retourne (moment, classification, phase) pour chaque moment critique de l'utilisateur."""
     evals = load_evals(conn, game_id)
@@ -51,7 +51,7 @@ def classify_game(
 
 def store_moments(
     conn: sqlite3.Connection,
-    game_id: str,
+    game_id: int,
     items: list[tuple[CriticalMoment, Classification, str]],
     clocks: dict[int, float | None],
 ) -> None:

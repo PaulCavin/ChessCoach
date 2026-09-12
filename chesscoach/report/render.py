@@ -74,7 +74,7 @@ def render(r: Report) -> str:
             out.append(
                 f"- {_d(e.played_at)}, coup {(e.ply + 1) // 2} ({PHASE_LABEL[e.phase].split(' ')[0].lower()}) : "
                 f"joué **{e.san}**, meilleur **{e.best_move_san}**, perte {e.loss} cp — "
-                f"[partie]({e.game_id}) · `{e.fen}`"
+                f"[partie n° {e.game_number}]({e.url}) · `{e.fen}`"
             )
         out.append("")
 

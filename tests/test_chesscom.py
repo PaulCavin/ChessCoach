@@ -69,7 +69,8 @@ def test_ingest_stores_games_and_moves(conn, fake_api):
     assert conn.execute("SELECT count(*) FROM games").fetchone()[0] == 2
     assert conn.execute("SELECT count(*) FROM moves").fetchone()[0] == 13 + 7
 
-    g1 = conn.execute("SELECT * FROM games WHERE id LIKE '%0001'").fetchone()
+    g1 = conn.execute("SELECT * FROM games WHERE url LIKE '%0001'").fetchone()
+    assert g1["game_number"] == 1
     assert g1["user_color"] == "white"
     assert g1["user_result"] == "win"
     assert g1["white_elo"] == 912 and g1["black_elo"] == 898
@@ -80,7 +81,8 @@ def test_ingest_stores_games_and_moves(conn, fake_api):
     assert g1["ply_count"] == 13
     assert g1["pgn"].startswith("[Event")
 
-    g2 = conn.execute("SELECT * FROM games WHERE id LIKE '%0002'").fetchone()
+    g2 = conn.execute("SELECT * FROM games WHERE url LIKE '%0002'").fetchone()
+    assert g2["game_number"] == 2
     assert g2["user_color"] == "black"
     assert g2["user_result"] == "loss"
 
@@ -110,7 +112,7 @@ def test_ingest_respects_since_until(conn, fake_api):
 
 
 def test_games_without_pgn_are_skipped(conn):
-    assert chesscom.store_game(conn, USERNAME, {"url": "x", "white": {}, "black": {}}) is False
+    assert chesscom.store_game(conn, USERNAME, {"url": "x", "white": {}, "black": {}}) is None
 
 
 def test_cli_main(tmp_path, fake_api, monkeypatch, capsys):
