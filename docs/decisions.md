@@ -263,3 +263,30 @@ de session, phase 2) ni dans `taxonomy/`. Sortie : `reports/<username>.md`
 (hors git). Sections : phase, type d'erreur (avec les 3 pires positions par
 type, FEN + lien), horloge, ouvertures, évolution mensuelle. Aucune phrase
 d'interprétation : des chiffres et des positions.
+
+---
+
+## D-008 — Premier cas du jeu d'évaluation et format des cas (2026-09-14, adoptée)
+
+**Contexte.** Test manuel du protocole sur la partie n° 1287 (28.Rac1??,
++236 → mat en 3) avec un LLM niveau Sonnet 5 : le brouillon d'explication
+contenait 3 affirmations tactiques fausses sur 6 (« la dame f5 défend e2 »,
+« Dd5 est échec », « les noirs peuvent jouer Dxd5 ») et un jugement de style
+invérifiable (« passif »). Toutes détectées par des vérifications python-chess
+simples (`attacks`, `gives_check`, `legal_moves`) et par comparaison aux
+champs `evals`.
+
+**Choix.**
+- Un cas = un JSON dans `chesscoach/eval/cases/` : position, coup joué, faits
+  moteur, brouillon d'explication, liste d'affirmations avec la vérification
+  attendue (`accept`/`reject`) et l'explication validée.
+- `tests/test_eval_cases.py` rejoue chaque vérification sans LLM : le jeu
+  d'évaluation est un test de non-régression du **critique**, pas du modèle.
+- Conséquence pour la phase 2 : `critic.py` vérifie les faits par **code
+  déterministe** (python-chess + `evals`), jamais en demandant au LLM s'il a
+  raison ; les jugements de style sont filtrés par formulation (mots interdits :
+  passif, élégant, naturel, évident…) et non envoyés à un second modèle.
+
+**Raison.** Le principe « le LLM formule, il ne juge jamais » est tenable avec
+ce niveau de modèle uniquement si la vérification est mécanique ; l'expérience
+montre qu'un ton assuré ne prédit pas la véracité.
