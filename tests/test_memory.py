@@ -107,3 +107,29 @@ def test_server_serves_pages_and_records_answers(tmp_path):
             raise AssertionError("attendu 400")
     finally:
         server.shutdown()
+
+
+def test_exercise_events_are_recorded_and_counted(tmp_path):
+    conn, gid = _setup(tmp_path / "m.sqlite")
+    record_answer(conn, Answer("coachtest", gid, 6, "Nf6", None, 40, "played"))
+    record_answer(conn, Answer("coachtest", gid, 6, "g6", None, 80, "other", kind="exercise"))
+    sync_markdown(conn, "coachtest", gid, tmp_path / "learner")
+    text = (tmp_path / "learner/tags/calculation_error.md").read_text(encoding="utf-8")
+    assert "exercises: 1" in text and "| exercice | g6 |" in text and "| réponse | Nf6 |" in text
+
+
+def test_old_v5_database_gets_kind_column(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "v5.sqlite"
+    raw = sqlite3.connect(path)
+    raw.executescript(
+        "CREATE TABLE schema_version (version INTEGER NOT NULL); INSERT INTO schema_version VALUES (5);"
+        "CREATE TABLE learner_events (id INTEGER PRIMARY KEY, ts TEXT, username TEXT, game_id INTEGER, ply INTEGER, primary_tag TEXT,"
+        " tags TEXT, user_move TEXT, plan TEXT, confidence INTEGER, verdict TEXT, loss INTEGER);"
+    )
+    raw.commit()
+    raw.close()
+    conn = db.connect(path)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(learner_events)")}
+    assert "kind" in cols and conn.execute("SELECT version FROM schema_version").fetchone()[0] == db.SCHEMA_VERSION

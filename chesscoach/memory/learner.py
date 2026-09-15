@@ -41,6 +41,7 @@ class Answer:
     plan: str | None
     confidence: int | None
     verdict: str  # best | played | other
+    kind: str = "answer"  # answer | exercise
 
 
 def record_answer(conn: sqlite3.Connection, a: Answer) -> int:
@@ -51,9 +52,11 @@ def record_answer(conn: sqlite3.Connection, a: Answer) -> int:
     if a.verdict not in ("best", "played", "other"):
         raise ValueError(f"verdict inconnu : {a.verdict}")
     conf = None if a.confidence is None else max(0, min(100, int(a.confidence)))
+    if a.kind not in ("answer", "exercise"):
+        raise ValueError(f"type inconnu : {a.kind}")
     cur = conn.execute(
-        "INSERT INTO learner_events (username, game_id, ply, primary_tag, tags, user_move, plan, confidence, verdict, loss)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO learner_events (username, game_id, ply, primary_tag, tags, user_move, plan, confidence, verdict,"
+        " loss, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             a.username,
             a.game_id,
@@ -65,6 +68,7 @@ def record_answer(conn: sqlite3.Connection, a: Answer) -> int:
             conf,
             a.verdict,
             cm["loss"],
+            a.kind,
         ),
     )
     conn.commit()
@@ -122,6 +126,7 @@ def write_tag_notes(conn: sqlite3.Connection, username: str, root: Path) -> list
             continue
         n = len(rows)
         best = sum(1 for r in rows if r["verdict"] == "best")
+        ex = [r for r in rows if r["kind"] == "exercise"]
         conf = [r["confidence"] for r in rows if r["confidence"] is not None]
         front = _yaml(
             {
@@ -130,6 +135,10 @@ def write_tag_notes(conn: sqlite3.Connection, username: str, root: Path) -> list
                 "occurrences": n,
                 "found_best": best,
                 "success_rate": round(best / n, 2) if n else None,
+                "exercises": len(ex),
+                "exercise_success_rate": round(sum(1 for r in ex if r["verdict"] == "best") / len(ex), 2)
+                if ex
+                else None,
                 "avg_confidence": round(sum(conf) / len(conf)) if conf else None,
                 "last_seen": rows[-1]["ts"][:10] if rows else None,
                 "updated": datetime.now(tz=UTC).strftime("%Y-%m-%d"),
@@ -139,13 +148,13 @@ def write_tag_notes(conn: sqlite3.Connection, username: str, root: Path) -> list
             front,
             f"# {TAG_LABEL[tag.value]}",
             "",
-            "| Date | Partie | Coup | Ton essai | Confiance | Verdict | Plan déclaré |",
-            "|---|---|---:|---|---:|---|---|",
+            "| Date | Partie | Coup | Type | Ton essai | Confiance | Verdict | Plan déclaré |",
+            "|---|---|---:|---|---|---:|---|---|",
         ]
         for r in rows:
             body.append(
                 f"| {r['ts'][:10]} | [[sessions/{r['ts'][:10]}_g{r['game_number']}\\|n° {r['game_number']}]] | {(r['ply'] + 1) // 2} "
-                f"| {r['user_move']} | {r['confidence'] if r['confidence'] is not None else '—'} | {VERDICT_FR[r['verdict']]} "
+                f"| {KIND_FR[r['kind']]} | {r['user_move']} | {r['confidence'] if r['confidence'] is not None else '—'} | {VERDICT_FR[r['verdict']]} "
                 f"| {(r['plan'] or '').replace('|', '/')} |"
             )
         _write_with_notes(path, "\n".join(body), _read_notes(path))
@@ -153,6 +162,7 @@ def write_tag_notes(conn: sqlite3.Connection, username: str, root: Path) -> list
     return written
 
 
+KIND_FR = {"answer": "réponse", "exercise": "exercice"}
 VERDICT_FR = {"best": "✔ meilleur coup", "played": "✖ coup de la partie", "other": "? non évalué"}
 
 
@@ -185,7 +195,7 @@ def write_session_note(conn: sqlite3.Connection, username: str, game_id: int, ro
     for r in rows:
         body += [
             f"## Coup {(r['ply'] + 1) // 2} — [[tags/{r['primary_tag']}\\|{TAG_LABEL[r['primary_tag']]}]]",
-            f"- Ton essai : **{r['user_move']}** → {VERDICT_FR[r['verdict']]}",
+            f"- {'Exercice' if r['kind'] == 'exercise' else 'Ton essai'} : **{r['user_move']}** → {VERDICT_FR[r['verdict']]}",
             f"- Confiance déclarée : {r['confidence'] if r['confidence'] is not None else '—'}",
             f"- Plan déclaré : {r['plan'] or '—'}",
             f"- Perte du coup joué en partie : {r['loss']} cp",

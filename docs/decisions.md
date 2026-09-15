@@ -374,3 +374,24 @@ Markdown à frontmatter YAML.
   hors serveur (les réponses ne sont alors pas enregistrées, et la page le dit).
 - Les champs FSRS (stabilité, prochaine révision) seront ajoutés au
   frontmatter en phase 3 sans changer la structure.
+
+---
+
+## D-012 — Exercice immédiat : la position rejouée deux coups avant (2026-09-15, validée)
+
+**Contexte.** Étape 5 de la boucle : après le verdict, un exercice tout de
+suite. Les puzzles Lichess (base de 900 Mo) sont reportés en phase 3.
+
+**Choix (validé par l'utilisateur).** Bouton « Exercice : rejouer depuis 2 coups
+avant » après le verdict d'un moment critique (serveur local uniquement).
+L'échiquier revient 4 demi-coups en arrière ; les coups adverses sont rejoués
+automatiquement ; sur ses propres coups l'utilisateur rejoue la partie (un
+autre coup est accepté mais signalé « non évalué », puis la ligne de la partie
+reprend) ; au moment critique, verdict habituel, enregistré avec
+`kind = 'exercise'` (colonne ajoutée, schéma v6, migration `ALTER TABLE`
+idempotente). Les notes `tags/<tag>.md` distinguent réponses et exercices
+(`exercises`, `exercise_success_rate` dans le frontmatter).
+
+**Raison.** Zéro dépendance nouvelle, cohérent avec l'oracle (seuls le coup
+joué et le meilleur coup sont évalués), et fournit dès maintenant la mesure
+« taux de réussite en exercice » dont FSRS aura besoin en phase 3.

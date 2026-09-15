@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 MIN_COMPATIBLE_VERSION = 4  # v4 a changé la clé des parties : base < 4 -> supprimer et ré-ingérer
 
 SCHEMA = """
@@ -126,7 +126,8 @@ CREATE TABLE IF NOT EXISTS learner_events (
     plan            TEXT,                       -- plan déclaré (texte libre)
     confidence      INTEGER,                    -- 0-100 déclaré avant révélation
     verdict         TEXT NOT NULL CHECK (verdict IN ('best', 'played', 'other')),
-    loss            INTEGER NOT NULL            -- perte du coup joué en partie (cp)
+    loss            INTEGER NOT NULL,           -- perte du coup joué en partie (cp)
+    kind            TEXT NOT NULL DEFAULT 'answer' CHECK (kind IN ('answer', 'exercise'))
 );
 CREATE INDEX IF NOT EXISTS idx_le_user_tag ON learner_events (username, primary_tag, ts);
 """
@@ -152,6 +153,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
             "supprimer le fichier et relancer l'ingestion (python -m chesscoach.ingest.chesscom <username>)."
         )
     conn.executescript(SCHEMA)
+    _migrate_columns(conn)
     if row is None:
         conn.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
     elif row["version"] < SCHEMA_VERSION:
@@ -161,3 +163,14 @@ def init_schema(conn: sqlite3.Connection) -> None:
     elif row["version"] > SCHEMA_VERSION:
         raise RuntimeError(f"Base en version {row['version']}, plus récente que le code ({SCHEMA_VERSION}).")
     conn.commit()
+
+
+# Colonnes ajoutées après coup : (table, colonne, définition). Idempotent.
+ADDED_COLUMNS = (("learner_events", "kind", "TEXT NOT NULL DEFAULT 'answer'"),)
+
+
+def _migrate_columns(conn: sqlite3.Connection) -> None:
+    for table, column, definition in ADDED_COLUMNS:
+        cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")

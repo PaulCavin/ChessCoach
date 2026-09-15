@@ -63,7 +63,7 @@ table.idx td{padding:10px;border-bottom:1px solid var(--line)}table.idx tr:hover
 """
 
 JS = """
-const D=window.__DATA__;const L=D.plies;let i=D.start||0;let flip=D.flip;let trial=null;let sel=null;let timer=null;const form={};let saved=null;
+const D=window.__DATA__;const L=D.plies;let i=D.start||0;let flip=D.flip;let trial=null;let sel=null;let timer=null;const form={};let saved=null;let ex=null;
 const $=q=>document.querySelector(q);const svg=$('svg.board');
 function sq(f,r){return flip?[7-f,7-r]:[f,r]}
 function uciSq(u){return [u.charCodeAt(0)-97,+u[1]-1]}
@@ -97,6 +97,10 @@ $('#bsq').innerHTML=renderBoard(curFen(),extra);
 const cp=p.cp;const pct=Math.max(4,Math.min(96,50+(D.userWhite?cp:-cp)/1000*50*0.9));const bar=$('.evalbar');
 bar.querySelector('i').style.height=pct+'%';const lab=bar.querySelector('b');lab.textContent=p.label;lab.style.top=pct>50?'':'auto';lab.style.bottom=pct>50?'0':'';lab.style.color=pct>50?'#111':'#eee';
 const now=$('#now');const turnTxt=p.fen.split(' ')[1]==='w'?'trait aux blancs':'trait aux noirs';
+if(ex&&i<ex.target&&!trial){const mine=(L[i].fen.split(' ')[1]==='w')===D.userWhite;now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Exercice · ${turnTxt}</div><div class="mv">Rejoue la partie</div><p style="margin:8px 0 0;color:var(--muted)">${mine?'Joue le coup de la partie (ou un autre : il ne sera pas évalué).':'Coup adverse : il sera joué automatiquement.'}</p><div style="margin-top:10px"><button class="btn" id="exstop">Abandonner l'exercice</button></div>`;$('#exstop').onclick=()=>{const t=ex.target;ex=null;go(t)};
+if(!mine){setTimeout(()=>{if(ex&&i<ex.target&&!trial)go(i+1)},700)}
+$('#undo').hidden=true;document.querySelectorAll('.moves span.m').forEach(e=>e.classList.toggle('cur',+e.dataset.i===i));$('#pos').textContent=i+' / '+(L.length-1);return}
+if(ex&&i<ex.target&&trial){const gm=L[i+1].uci;const ok=gm&&gm.slice(0,4)===trial.code.slice(0,4);now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Exercice</div><div class="mv" style="color:${ok?'var(--green)':'var(--blue)'}">${trial.san} — ${ok?'coup de la partie':'autre coup (non évalué)'}</div><div class="ev">${ok?'On continue.':'On reprend la ligne de la partie.'}</div>`;setTimeout(()=>{if(ex){trial=null;go(i+1)}},700);return}
 if(cm&&!D.reveal[i+1]&&!trial){const nm=L[i+1];const f=form[i]||(form[i]={plan:'',conf:50});
 now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}</div><div class="mv">À toi de jouer</div><p style="margin:8px 0 0;color:var(--muted)">Coup ${nm.num} : note ton plan et ta confiance, puis joue ton coup sur l'échiquier.</p>
 <textarea id="plan" rows="2" placeholder="Ton plan en une phrase (facultatif)" style="width:100%;margin-top:8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit">${f.plan}</textarea>
@@ -110,7 +114,8 @@ if(same(cm.best_uci))head=`<div class="mv" style="color:var(--green)">✔ ${tria
 else if(same(cm.played_uci))head=`<div class="mv" style="color:var(--red)">${trial.san} — c'est le coup joué en partie</div><div class="ev">${p.label} → ${nm.label} · perte ${nm.loss} cp</div>`;
 else head=`<div class="mv" style="color:var(--blue)">${trial.san} — coup légal, non évalué</div><div class="ev">Seuls le coup joué et le meilleur coup ont une éval moteur ici ; je ne juge pas ce coup.</div>`}
 else head=`<div class="mv">${nm.num}${nm.dots}${nm.san} <span style="color:var(--red);font-size:1rem">joué</span></div><div class="ev">${p.label} → ${nm.label} · perte ${nm.loss} cp</div>`;
-now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}${saved?' · <span id="saved">'+saved+'</span>':''}</div>${head}<div style="margin-top:6px"><span class="chip ${nm.sev}">${nm.sevfr}</span><span class="chip tag">${nm.tag}</span><span class="chip best">meilleur : ${cm.best_san}</span></div><p style="margin:10px 0 0;color:var(--muted);font-size:.92rem">${cm.text}</p>`}
+now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}${saved?' · <span id="saved">'+saved+'</span>':''}</div>${head}<div style="margin-top:6px"><span class="chip ${nm.sev}">${nm.sevfr}</span><span class="chip tag">${nm.tag}</span><span class="chip best">meilleur : ${cm.best_san}</span></div><p style="margin:10px 0 0;color:var(--muted);font-size:.92rem">${cm.text}</p>${(D.served&&!ex&&!D.exdone[i+1])?'<div style="margin-top:10px"><button class="btn" id="exbtn">Exercice : rejouer depuis 2 coups avant</button></div>':''}${D.exdone[i+1]?'<div class="ev" style="margin-top:8px">Exercice terminé : '+D.exdone[i+1]+'</div>':''}`;
+const eb=$('#exbtn');if(eb)eb.onclick=()=>{ex={target:i,at:Math.max(0,i-4)};i=ex.at;trial=null;sel=null;D.reveal[ex.target+1]=false;show()}}
 else if(trial){now.innerHTML=`<div class="mv" style="color:var(--blue)">${trial.san} <span style="font-size:1rem">essai</span></div><div class="ev">Coup légal. Pas d'évaluation moteur pour les variantes dans ce bilan.</div>`}
 else if(i===0){now.innerHTML='<div class="mv">Position initiale</div><div class="ev">Éval '+p.label+'</div>'}
 else{const m=L[i-1];now.innerHTML=`<div class="mv">${m.num}${m.dots}${m.san}</div><div class="ev">${L[i-1].label} → ${p.label}${m.mine&&m.loss>=50?' · perte '+m.loss+' cp':''}</div><div style="margin-top:6px">${m.sev?`<span class="chip ${m.sev}">${m.sevfr}</span>`:''}${m.tag?`<span class="chip tag">${m.tag}</span>`:''}</div>`}
@@ -119,13 +124,14 @@ document.querySelectorAll('.moves span.m').forEach(e=>e.classList.toggle('cur',+
 const cur=$('.moves span.m.cur');if(cur)cur.scrollIntoView({block:'nearest'});
 $('#pos').textContent=i+' / '+(L.length-1);
 document.querySelectorAll('.dot').forEach(c=>c.classList.toggle('cur',+c.dataset.i===i))}
-function go(n){i=Math.max(0,Math.min(L.length-1,n));trial=null;sel=null;show()}
+function go(n){const t=Math.max(0,Math.min(L.length-1,n));if(ex&&(t>ex.target||t<ex.at))ex=null;i=t;trial=null;sel=null;show()}
 function sanOf(code){const b=parseFen(L[i].fen);const pc=b[uciSq(code.slice(0,2)).join(',')]||'';const cap=!!b[uciSq(code.slice(2,4)).join(',')]||code.endsWith('e');const k=code[code.length-1];
 if(k==='c')return code[2]==='g'?'O-O':'O-O-O';const P=pc.toUpperCase()==='P'?(cap?code[0]:''):pc.toUpperCase();return P+(cap?'x':'')+code.slice(2,4)+(k==='p'?'='+code[4].toUpperCase():'')}
 function tryMove(f1,r1,f2,r2){const from='abcdefgh'[f1]+(r1+1),to='abcdefgh'[f2]+(r2+1);let codes=(L[i].legal||[]).filter(c=>c.startsWith(from+to));if(!codes.length)return false;
 let code=codes.find(c=>c[4]==='q')||codes[0];trial={code,fen:applyMove(L[i].fen,code),san:sanOf(code)};sel=null;
 const cm=D.momentsByPly[i+1];if(cm&&D.served&&!D.reveal[i+1]){const same=c=>c.slice(0,4)===code.slice(0,4);const verdict=same(cm.best_uci)?'best':same(cm.played_uci)?'played':'other';const f=form[i]||{plan:'',conf:50};saved='…';
-fetch('/api/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game_number:D.gameNumber,ply:i+1,san:trial.san,plan:f.plan,confidence:f.conf,verdict})}).then(r=>r.json()).then(j=>{saved=j.ok?'enregistré ✓':'erreur : '+j.error;show()}).catch(()=>{saved='serveur injoignable';show()})}
+const kind=(ex&&ex.target===i)?'exercise':'answer';if(kind==='exercise'){D.exdone[i+1]=verdict==='best'?'✔ meilleur coup trouvé':'✖ ('+trial.san+')';ex=null}
+fetch('/api/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game_number:D.gameNumber,ply:i+1,san:trial.san,plan:f.plan,confidence:f.conf,verdict,kind})}).then(r=>r.json()).then(j=>{saved=j.ok?'enregistré ✓':'erreur : '+j.error;show()}).catch(()=>{saved='serveur injoignable';show()})}
 else saved=null;show();return true}
 let drag=null;
 function squareAt(ev){const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const p=pt.matrixTransform(svg.getScreenCTM().inverse());const x=Math.floor(p.x/45),y=7-Math.floor(p.y/45);if(x<0||x>7||y<0||y>7)return null;return flip?[7-x,7-y]:[x,y]}
@@ -302,6 +308,7 @@ def game_page(conn: sqlite3.Connection, game: sqlite3.Row, served: bool = False)
         "flip": not user_white,
         "start": min(cms) - 1 if cms else 0,
         "reveal": {},
+        "exdone": {},
         "served": served,
         "gameNumber": game["game_number"],
     }

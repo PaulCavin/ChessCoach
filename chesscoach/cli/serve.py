@@ -62,6 +62,7 @@ class App:
             payload.get("plan"),
             payload.get("confidence"),
             str(payload["verdict"]),
+            str(payload.get("kind", "answer")),
         )
         with self.lock:
             event_id = record_answer(conn, a)
