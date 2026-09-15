@@ -91,3 +91,36 @@ def test_report_on_fixture(sample_pgn_text):
     assert "| Erreur de calcul | 1 | 100 % |" in text
     assert ex.fen.startswith("r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b") and f"`{ex.fen}`" in text
     assert "| Philidor Defense | blancs | 1 |" not in text  # < 5 parties : non listée
+
+
+def test_html_pages_on_fixture(sample_pgn_text, tmp_path):
+    from chesscoach.report.html import build
+
+    conn = db.connect(":memory:")
+    g1, g2 = split_games(sample_pgn_text)
+    gid = store_game(
+        conn,
+        "coachtest",
+        {
+            "url": "https://x/2",
+            "pgn": g2,
+            "rules": "chess",
+            "time_class": "rapid",
+            "time_control": "600",
+            "end_time": 1742030000,
+            "white": {"username": "opponent_two", "result": "win"},
+            "black": {"username": "coachtest", "result": "checkmated", "rating": 905},
+        },
+    )
+    from chesscoach.ingest.chesscom import renumber_games
+
+    renumber_games(conn, "coachtest")
+    store_evals(conn, gid, _fake_evals(g2, 6), "fake", 1)
+    classify_all(conn, "coachtest")
+    nums = build(conn, "coachtest", tmp_path, 5)
+    assert nums == [1]
+    import html as _html
+
+    page = _html.unescape((tmp_path / "game_1.html").read_text(encoding="utf-8"))
+    assert "<svg" in page and "Nf6" in page and "Je ne sais pas mieux l'expliquer" in page
+    assert "game_1.html" in (tmp_path / "index.html").read_text(encoding="utf-8")

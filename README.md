@@ -36,6 +36,16 @@ python -m chesscoach.taxonomy.classify_games --username <username>
 python -m chesscoach.report --username <username> --time-class rapid --time-control 600 --out reports/<username>.md
 ```
 
+## Bilan visuel et explications
+
+```bash
+# pages HTML autonomes (échiquiers SVG, flèches, courbe d'éval) pour les 10 dernières parties
+python -m chesscoach.report.html --username <username> --games 10 --out reports/html
+# explication d'un moment critique par le LLM, vérifiée par le critique
+export CHESSCOACH_LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=...   # ou ollama (défaut), anthropic
+python -m chesscoach.agents.explainer --game 1287 --ply 55
+```
+
 ## Requêter le corpus
 
 ```bash

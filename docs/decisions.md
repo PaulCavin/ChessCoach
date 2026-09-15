@@ -290,3 +290,37 @@ champs `evals`.
 **Raison.** Le principe « le LLM formule, il ne juge jamais » est tenable avec
 ce niveau de modèle uniquement si la vérification est mécanique ; l'expérience
 montre qu'un ton assuré ne prédit pas la véracité.
+
+
+---
+
+## D-009 — LLM DeepSeek en API, client multi-fournisseur, et UX visuelle avancée (2026-09-15, adoptée)
+
+**Contexte.** L'utilisateur veut tester DeepSeek (v4.1 flash) en API comme
+LLM de formulation, et une UX visuelle « au moins égale au bilan de partie de
+Chess.com » (échiquier, flèches, courbe d'éval, badges gaffe/erreur) sans
+attendre la phase 4.
+
+**Choix.**
+- `agents/llm.py` : client sans dépendance, fournisseur par variable
+  d'environnement (`CHESSCOACH_LLM_PROVIDER` = deepseek | ollama | anthropic,
+  `CHESSCOACH_LLM_MODEL`), API compatible OpenAI pour DeepSeek et Ollama,
+  API Messages pour Anthropic. Clés uniquement dans l'environnement.
+- `agents/facts.py` : la **seule** entrée du LLM est une liste de faits
+  identifiés (`[eval_before]`, `[best_line]`, `[reply_captures]`…) calculés
+  par python-chess et `evals`. Le prompt `prompts/explainer_v1.md` impose une
+  réponse JSON où chaque phrase pointe vers l'id d'un fait.
+- `agents/critic.py` : vérification par code (fait inconnu, phrase sans fait,
+  coup absent des faits, mot de jugement interdit) → sinon **abstention**
+  (texte composé uniquement de faits + ligne moteur). Cette abstention est
+  aussi le texte affiché quand aucun LLM n'est configuré.
+- UX visuelle : `report/html.py` génère un bilan HTML autonome par partie
+  (SVG python-chess, flèche rouge = joué, verte = meilleur, courbe d'éval,
+  badges, faits vérifiés dépliables). Aucun serveur, aucun JS : lisible sur
+  téléphone. Écart assumé avec le brief (front en phase 4) : c'est du HTML
+  statique généré par la CLI, pas encore l'appli ; la session interactive
+  (raisonnement d'abord) reste à construire.
+
+**Raison.** Le test manuel (D-008) a montré que la valeur est dans la
+vérification, pas dans le modèle : un client interchangeable permet de
+comparer DeepSeek / Ollama / Anthropic sur le même jeu d'évaluation.
