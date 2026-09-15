@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import io
 import multiprocessing
+import os
 import sqlite3
 import sys
 import time
@@ -166,7 +167,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument("--time-class")
     parser.add_argument("--time-control")
     parser.add_argument("--depth", type=int, default=DEFAULT_DEPTH)
-    parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     parser.add_argument("--limit", type=int)
     parser.add_argument("--stockfish", help="chemin du binaire (sinon $CHESSCOACH_STOCKFISH, bin/, PATH)")
     args = parser.parse_args(list(argv) if argv is not None else None)

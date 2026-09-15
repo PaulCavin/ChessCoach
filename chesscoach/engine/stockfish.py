@@ -26,7 +26,7 @@ def default_binary() -> str | None:
 class Stockfish:
     """Utilisation : ``with Stockfish() as sf: sf.evaluate(board, depth=14)``."""
 
-    def __init__(self, binary: str | None = None, *, threads: int = 1, hash_mb: int = 64):
+    def __init__(self, binary: str | None = None, *, threads: int = 1, hash_mb: int = 128):
         self.binary = binary or default_binary()
         if not self.binary:
             raise FileNotFoundError(f"Stockfish introuvable : définir {ENV_VAR} ou placer le binaire dans bin/.")

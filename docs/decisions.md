@@ -324,3 +324,25 @@ attendre la phase 4.
 **Raison.** Le test manuel (D-008) a montré que la valeur est dans la
 vérification, pas dans le modèle : un client interchangeable permet de
 comparer DeepSeek / Ollama / Anthropic sur le même jeu d'évaluation.
+
+
+---
+
+## D-010 — Machine cible et valeurs par défaut (2026-09-15, adoptée)
+
+**Contexte.** Machine de l'utilisateur : Ubuntu, 16 Go de RAM, pas de GPU ;
+LLM en API (DeepSeek), pas de modèle local.
+
+**Mesures sur le corpus réel** : base SQLite 14 Mo pour 1287 parties dont 599
+analysées (≈ 20 ko/partie analysée), Stockfish 76 Mo, ≈ 130 ko par page HTML.
+
+**Choix.**
+- Fournisseur LLM par défaut : **deepseek** (écart avec le brief qui prévoyait
+  Ollama par défaut ; Ollama reste disponible via `CHESSCOACH_LLM_PROVIDER`).
+  Seule la liste de faits (FEN, évals, coups) est envoyée à l'API, jamais le
+  PGN complet ni des données personnelles.
+- Stockfish : 128 Mo de hash par processus ; analyse de masse sur
+  `nproc − 1` processus par défaut (≈ 0,5 Go de RAM au total sur 4 cœurs).
+- Empreinte visée en phase 2 : < 300 Mo de disque, < 1 Go de RAM tout compris,
+  serveur local inclus. Phase 3 : + 250 Mo à 900 Mo pour la base de puzzles
+  Lichess selon filtrage par thèmes.

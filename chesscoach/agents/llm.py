@@ -1,6 +1,6 @@
 """Client LLM minimal, sans dépendance. Fournisseur choisi par variables d'environnement, aucune clé en dur.
 
-CHESSCOACH_LLM_PROVIDER = deepseek | ollama | anthropic   (défaut : ollama)
+CHESSCOACH_LLM_PROVIDER = deepseek | ollama | anthropic   (défaut : deepseek, décision D-010)
 CHESSCOACH_LLM_MODEL    = nom du modèle (défauts : deepseek-chat / qwen2.5:7b / claude-sonnet-5)
 DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OLLAMA_HOST (défaut http://localhost:11434)
 """
@@ -30,7 +30,7 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls) -> LLMConfig:
-        provider = os.environ.get("CHESSCOACH_LLM_PROVIDER", "ollama").lower()
+        provider = os.environ.get("CHESSCOACH_LLM_PROVIDER", "deepseek").lower()
         model = os.environ.get("CHESSCOACH_LLM_MODEL") or DEFAULT_MODELS.get(provider, "")
         if provider == "deepseek":
             return cls(provider, model, "https://api.deepseek.com", os.environ.get("DEEPSEEK_API_KEY"))
