@@ -346,3 +346,31 @@ analysées (≈ 20 ko/partie analysée), Stockfish 76 Mo, ≈ 130 ko par page HT
 - Empreinte visée en phase 2 : < 300 Mo de disque, < 1 Go de RAM tout compris,
   serveur local inclus. Phase 3 : + 250 Mo à 900 Mo pour la base de puzzles
   Lichess selon filtrage par thèmes.
+
+---
+
+## D-011 — Mémoire d'apprenant : SQLite source de vérité, Markdown généré, Notes réservées (2026-09-15, validée)
+
+**Contexte.** Le brief demande une mémoire « Markdown lisible et éditable ». Un
+Markdown purement généré écrase les modifications de l'utilisateur ; un
+Markdown purement manuel n'est pas requêtable. Knap (Steph Ango, MIT,
+TypeScript) confirme le modèle Obsidian : données structurées → notes
+Markdown à frontmatter YAML.
+
+**Choix (validé par l'utilisateur).**
+- `learner_events` (schéma v5, additif) : une ligne par réponse — coup essayé,
+  plan déclaré, confiance 0-100, verdict (`best` / `played` / `other`), tag,
+  perte — **enregistrée avant toute révélation** (raisonnement d'abord).
+- `memory/learner/` généré par `memory/learner.py` : `profile.md`,
+  `tags/<tag>.md` (frontmatter : occurrences, taux de réussite, confiance
+  moyenne, dernière vue ; tableau des occurrences avec `[[wikilinks]]` vers
+  les sessions), `sessions/<date>_g<n>.md`. Compatible Obsidian / Dataview.
+- Chaque note se termine par `## Notes` : tout ce qui suit **appartient à
+  l'utilisateur** et est recopié tel quel à chaque régénération.
+- Génération en Python pur (pas de dépendance Node/Knap) ; Knap reste une
+  option si l'utilisateur veut un jour personnaliser ses gabarits.
+- Serveur local `chesscoach/cli/serve.py` (stdlib, 127.0.0.1 uniquement) :
+  sert les bilans et reçoit `POST /api/answer`. Les pages restent utilisables
+  hors serveur (les réponses ne sont alors pas enregistrées, et la page le dit).
+- Les champs FSRS (stabilité, prochaine révision) seront ajoutés au
+  frontmatter en phase 3 sans changer la structure.

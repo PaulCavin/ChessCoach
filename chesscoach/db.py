@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 MIN_COMPATIBLE_VERSION = 4  # v4 a changé la clé des parties : base < 4 -> supprimer et ré-ingérer
 
 SCHEMA = """
@@ -111,6 +111,24 @@ CREATE TABLE IF NOT EXISTS critical_moments (
     PRIMARY KEY (game_id, ply)
 );
 CREATE INDEX IF NOT EXISTS idx_cm_tag ON critical_moments (primary_tag);
+
+-- Phase 2 (D-011). Réponses de l'apprenant, enregistrées AVANT toute révélation (raisonnement d'abord).
+-- Source de vérité de la mémoire d'apprenant ; les fichiers Markdown sont générés à partir d'ici.
+CREATE TABLE IF NOT EXISTS learner_events (
+    id              INTEGER PRIMARY KEY,
+    ts              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    username        TEXT NOT NULL,
+    game_id         INTEGER NOT NULL REFERENCES games (id) ON DELETE CASCADE,
+    ply             INTEGER NOT NULL,
+    primary_tag     TEXT NOT NULL,
+    tags            TEXT NOT NULL,
+    user_move       TEXT NOT NULL,              -- SAN du coup essayé
+    plan            TEXT,                       -- plan déclaré (texte libre)
+    confidence      INTEGER,                    -- 0-100 déclaré avant révélation
+    verdict         TEXT NOT NULL CHECK (verdict IN ('best', 'played', 'other')),
+    loss            INTEGER NOT NULL            -- perte du coup joué en partie (cp)
+);
+CREATE INDEX IF NOT EXISTS idx_le_user_tag ON learner_events (username, primary_tag, ts);
 """
 
 

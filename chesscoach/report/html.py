@@ -63,7 +63,7 @@ table.idx td{padding:10px;border-bottom:1px solid var(--line)}table.idx tr:hover
 """
 
 JS = """
-const D=window.__DATA__;const L=D.plies;let i=D.start||0;let flip=D.flip;let trial=null;let sel=null;let timer=null;
+const D=window.__DATA__;const L=D.plies;let i=D.start||0;let flip=D.flip;let trial=null;let sel=null;let timer=null;const form={};let saved=null;
 const $=q=>document.querySelector(q);const svg=$('svg.board');
 function sq(f,r){return flip?[7-f,7-r]:[f,r]}
 function uciSq(u){return [u.charCodeAt(0)-97,+u[1]-1]}
@@ -97,7 +97,12 @@ $('#bsq').innerHTML=renderBoard(curFen(),extra);
 const cp=p.cp;const pct=Math.max(4,Math.min(96,50+(D.userWhite?cp:-cp)/1000*50*0.9));const bar=$('.evalbar');
 bar.querySelector('i').style.height=pct+'%';const lab=bar.querySelector('b');lab.textContent=p.label;lab.style.top=pct>50?'':'auto';lab.style.bottom=pct>50?'0':'';lab.style.color=pct>50?'#111':'#eee';
 const now=$('#now');const turnTxt=p.fen.split(' ')[1]==='w'?'trait aux blancs':'trait aux noirs';
-if(cm&&!D.reveal[i+1]&&!trial){const nm=L[i+1];now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}</div><div class="mv">À toi de jouer</div><p style="margin:8px 0 0;color:var(--muted)">Coup ${nm.num} : joue ton coup sur l'échiquier avant de voir le verdict.</p><div style="margin-top:10px"><button class="btn" id="reveal">Voir le verdict sans jouer</button></div>`;
+if(cm&&!D.reveal[i+1]&&!trial){const nm=L[i+1];const f=form[i]||(form[i]={plan:'',conf:50});
+now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}</div><div class="mv">À toi de jouer</div><p style="margin:8px 0 0;color:var(--muted)">Coup ${nm.num} : note ton plan et ta confiance, puis joue ton coup sur l'échiquier.</p>
+<textarea id="plan" rows="2" placeholder="Ton plan en une phrase (facultatif)" style="width:100%;margin-top:8px;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit">${f.plan}</textarea>
+<label style="display:flex;align-items:center;gap:10px;margin-top:8px;color:var(--muted)">Confiance <input id="conf" type="range" min="0" max="100" value="${f.conf}" style="flex:1"><b id="confv" style="color:var(--text);width:3ch">${f.conf}</b></label>
+<div style="margin-top:10px"><button class="btn" id="reveal">Voir le verdict sans jouer</button>${D.served?'':'<span class="ev" style="margin-left:8px">(réponses non enregistrées : page hors serveur)</span>'}</div>`;
+$('#plan').oninput=e=>{f.plan=e.target.value};$('#conf').oninput=e=>{f.conf=+e.target.value;$('#confv').textContent=e.target.value};
 $('#reveal').onclick=()=>{D.reveal[i+1]=true;show()}}
 else if(cm){const nm=L[i+1];let head='';
 if(trial){const same=c=>c.slice(0,4)===trial.code.slice(0,4);
@@ -105,7 +110,7 @@ if(same(cm.best_uci))head=`<div class="mv" style="color:var(--green)">✔ ${tria
 else if(same(cm.played_uci))head=`<div class="mv" style="color:var(--red)">${trial.san} — c'est le coup joué en partie</div><div class="ev">${p.label} → ${nm.label} · perte ${nm.loss} cp</div>`;
 else head=`<div class="mv" style="color:var(--blue)">${trial.san} — coup légal, non évalué</div><div class="ev">Seuls le coup joué et le meilleur coup ont une éval moteur ici ; je ne juge pas ce coup.</div>`}
 else head=`<div class="mv">${nm.num}${nm.dots}${nm.san} <span style="color:var(--red);font-size:1rem">joué</span></div><div class="ev">${p.label} → ${nm.label} · perte ${nm.loss} cp</div>`;
-now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}</div>${head}<div style="margin-top:6px"><span class="chip ${nm.sev}">${nm.sevfr}</span><span class="chip tag">${nm.tag}</span><span class="chip best">meilleur : ${cm.best_san}</span></div><p style="margin:10px 0 0;color:var(--muted);font-size:.92rem">${cm.text}</p>`}
+now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}${saved?' · <span id="saved">'+saved+'</span>':''}</div>${head}<div style="margin-top:6px"><span class="chip ${nm.sev}">${nm.sevfr}</span><span class="chip tag">${nm.tag}</span><span class="chip best">meilleur : ${cm.best_san}</span></div><p style="margin:10px 0 0;color:var(--muted);font-size:.92rem">${cm.text}</p>`}
 else if(trial){now.innerHTML=`<div class="mv" style="color:var(--blue)">${trial.san} <span style="font-size:1rem">essai</span></div><div class="ev">Coup légal. Pas d'évaluation moteur pour les variantes dans ce bilan.</div>`}
 else if(i===0){now.innerHTML='<div class="mv">Position initiale</div><div class="ev">Éval '+p.label+'</div>'}
 else{const m=L[i-1];now.innerHTML=`<div class="mv">${m.num}${m.dots}${m.san}</div><div class="ev">${L[i-1].label} → ${p.label}${m.mine&&m.loss>=50?' · perte '+m.loss+' cp':''}</div><div style="margin-top:6px">${m.sev?`<span class="chip ${m.sev}">${m.sevfr}</span>`:''}${m.tag?`<span class="chip tag">${m.tag}</span>`:''}</div>`}
@@ -118,7 +123,10 @@ function go(n){i=Math.max(0,Math.min(L.length-1,n));trial=null;sel=null;show()}
 function sanOf(code){const b=parseFen(L[i].fen);const pc=b[uciSq(code.slice(0,2)).join(',')]||'';const cap=!!b[uciSq(code.slice(2,4)).join(',')]||code.endsWith('e');const k=code[code.length-1];
 if(k==='c')return code[2]==='g'?'O-O':'O-O-O';const P=pc.toUpperCase()==='P'?(cap?code[0]:''):pc.toUpperCase();return P+(cap?'x':'')+code.slice(2,4)+(k==='p'?'='+code[4].toUpperCase():'')}
 function tryMove(f1,r1,f2,r2){const from='abcdefgh'[f1]+(r1+1),to='abcdefgh'[f2]+(r2+1);let codes=(L[i].legal||[]).filter(c=>c.startsWith(from+to));if(!codes.length)return false;
-let code=codes.find(c=>c[4]==='q')||codes[0];trial={code,fen:applyMove(L[i].fen,code),san:sanOf(code)};sel=null;show();return true}
+let code=codes.find(c=>c[4]==='q')||codes[0];trial={code,fen:applyMove(L[i].fen,code),san:sanOf(code)};sel=null;
+const cm=D.momentsByPly[i+1];if(cm&&D.served&&!D.reveal[i+1]){const same=c=>c.slice(0,4)===code.slice(0,4);const verdict=same(cm.best_uci)?'best':same(cm.played_uci)?'played':'other';const f=form[i]||{plan:'',conf:50};saved='…';
+fetch('/api/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game_number:D.gameNumber,ply:i+1,san:trial.san,plan:f.plan,confidence:f.conf,verdict})}).then(r=>r.json()).then(j=>{saved=j.ok?'enregistré ✓':'erreur : '+j.error;show()}).catch(()=>{saved='serveur injoignable';show()})}
+else saved=null;show();return true}
 let drag=null;
 function squareAt(ev){const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const p=pt.matrixTransform(svg.getScreenCTM().inverse());const x=Math.floor(p.x/45),y=7-Math.floor(p.y/45);if(x<0||x>7||y<0||y>7)return null;return flip?[7-x,7-y]:[x,y]}
 svg.addEventListener('pointerdown',ev=>{if(trial)return;const s=squareAt(ev);if(!s)return;const b=parseFen(L[i].fen);const pc=b[s.join(',')];const turn=L[i].fen.split(' ')[1];
@@ -211,7 +219,7 @@ def static_board(fen: str, played: chess.Move, best: chess.Move, flip: bool) -> 
     )
 
 
-def game_page(conn: sqlite3.Connection, game: sqlite3.Row) -> str:
+def game_page(conn: sqlite3.Connection, game: sqlite3.Row, served: bool = False) -> str:
     evals = load_evals(conn, game["id"])
     rows = conn.execute("SELECT san, clock_seconds FROM moves WHERE game_id = ? ORDER BY ply", (game["id"],)).fetchall()
     sans = [r["san"] for r in rows]
@@ -294,10 +302,12 @@ def game_page(conn: sqlite3.Connection, game: sqlite3.Row) -> str:
         "flip": not user_white,
         "start": min(cms) - 1 if cms else 0,
         "reveal": {},
+        "served": served,
+        "gameNumber": game["game_number"],
     }
     return f"""<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Partie n° {game["game_number"]} — ChessCoach</title><style>{CSS}</style><body><div class="wrap">{piece_symbols()}
-<div class="top"><h1>Partie n° {game["game_number"]} · {"Blancs" if user_white else "Noirs"} contre {html.escape(opp)}</h1><a href="index.html">← toutes les parties</a></div>
+<div class="top"><h1>Partie n° {game["game_number"]} · {"Blancs" if user_white else "Noirs"} contre {html.escape(opp)}</h1><a href="{"/" if served else "index.html"}">← toutes les parties</a></div>
 <div class="meta"><span>{game["played_at"][:10]}</span><span>{game["time_class"]} {game["time_control"]}</span><span>Résultat : <b class="{game["user_result"]}">{game["user_result"]}</b></span><span><a href="{game["url"]}">Chess.com ↗</a></span></div>
 <div class="viewer"><div>
 <div class="boardwrap"><div class="evalbar"><i></i><b></b></div><svg class="board" viewBox="0 0 360 360"><g id="bsq"></g></svg></div>
@@ -310,12 +320,13 @@ def game_page(conn: sqlite3.Connection, game: sqlite3.Row) -> str:
 <script>window.__DATA__={json.dumps(data, ensure_ascii=False)};{JS}</script></div></body></html>"""
 
 
-def index_page(games: list[sqlite3.Row], username: str) -> str:
+def index_page(games: list[sqlite3.Row], username: str, served: bool = False) -> str:
     rows = []
     for g in games:
         opp = g["black"] if g["user_color"] == "white" else g["white"]
+        link = f"/game/{g['game_number']}" if served else f"game_{g['game_number']}.html"
         rows.append(
-            f'<tr><td><a href="game_{g["game_number"]}.html">n° {g["game_number"]}</a></td><td>{g["played_at"][:10]}</td>'
+            f'<tr><td><a href="{link}">n° {g["game_number"]}</a></td><td>{g["played_at"][:10]}</td>'
             f"<td>{'Blancs' if g['user_color'] == 'white' else 'Noirs'}</td><td>{html.escape(opp)}</td>"
             f'<td class="{g["user_result"]}">{g["user_result"]}</td><td class="dots">{"".join(f"<i style=background:{SEV_COLOR[s]}></i>" for s in (g["sevs"] or "").split(",") if s)}</td></tr>'
         )

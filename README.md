@@ -46,6 +46,17 @@ export CHESSCOACH_LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=...   # ou ollama (déf
 python -m chesscoach.agents.explainer --game 1287 --ply 55
 ```
 
+## Session d'entraînement (serveur local)
+
+```bash
+python -m chesscoach.cli.serve --username <username>      # http://127.0.0.1:8765/
+```
+
+Sur chaque moment critique : note ton plan et ta confiance, joue ton coup sur l'échiquier,
+puis le verdict s'affiche. Tes réponses vont dans SQLite (`learner_events`) et dans
+`memory/learner/` (Markdown à frontmatter, compatible Obsidian ; la section « Notes »
+de chaque fichier t'appartient et n'est jamais réécrite).
+
 ## Requêter le corpus
 
 ```bash
