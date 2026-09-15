@@ -122,5 +122,5 @@ def test_html_pages_on_fixture(sample_pgn_text, tmp_path):
     import html as _html
 
     page = _html.unescape((tmp_path / "game_1.html").read_text(encoding="utf-8"))
-    assert "<svg" in page and "Nf6" in page and "Je ne sais pas mieux l'expliquer" in page
+    assert "<svg" in page and "Nf6" in page and "Je ne sais pas mieux l'expliquer" in page and "__DATA__" in page
     assert "game_1.html" in (tmp_path / "index.html").read_text(encoding="utf-8")
