@@ -39,7 +39,7 @@ h1{font-size:1.35rem;margin:0;font-weight:650;letter-spacing:-.01em}h2{font-size
 .evalbar i{position:absolute;left:0;right:0;bottom:0;background:#f4f4f0;transition:height .25s}.evalbar b{position:absolute;left:0;right:0;text-align:center;font-size:9px;font-weight:700;line-height:1;padding:3px 0}
 svg.board{width:100%;height:auto;max-width:520px;border-radius:8px;display:block;flex:1}
 .ctrl{display:flex;gap:8px;margin-top:10px;align-items:center}.ctrl button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:1rem;cursor:pointer}
-.ctrl button:hover{background:#33322e}.ctrl .pos{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+.ctrl button:hover{background:#33322e}.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px 12px;cursor:pointer}svg.board{touch-action:none}.pc{cursor:grab}.ctrl .pos{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
 .side{display:flex;flex-direction:column;gap:12px;min-width:0}
 .now{padding:14px}.now .mv{font-size:1.5rem;font-weight:700}.now .ev{font-variant-numeric:tabular-nums;color:var(--muted)}
 .chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.8rem;font-weight:650;background:var(--panel2);color:var(--text);margin:2px 6px 2px 0}
@@ -63,41 +63,72 @@ table.idx td{padding:10px;border-bottom:1px solid var(--line)}table.idx tr:hover
 """
 
 JS = """
-const D=window.__DATA__;const L=D.plies;let i=D.start||0;
-const PIECE={p:'p',n:'n',b:'b',r:'r',q:'q',k:'k'};
-function sq(f,r){return D.flip?[7-f,7-r]:[f,r]}
-function renderBoard(fen,extra){const [pos,turn]=fen.split(' ');let rows=pos.split('/');let s='';
-for(let r=0;r<8;r++){for(let f=0;f<8;f++){const [x,y]=sq(f,7-r);const light=(f+r)%2===0;
-s+=`<rect x="${x*45}" y="${(7-y)*45}" width="45" height="45" fill="${light?'#eeeed2':'#769656'}"/>`;}}
-for(const h of (extra.hl||[])){const [x,y]=sq(h[0],h[1]);s+=`<rect x="${x*45}" y="${(7-y)*45}" width="45" height="45" fill="${h[2]}" opacity=".55"/>`;}
-for(let r=0;r<8;r++){let f=0;for(const c of rows[r]){if(/\\d/.test(c)){f+=+c;continue}const [x,y]=sq(f,7-r);
-const id=(c===c.toUpperCase()?'w':'b')+c.toLowerCase();s+=`<use href="#${id}" x="${x*45}" y="${(7-y)*45}" width="45" height="45"/>`;f++;}}
-for(const a of (extra.arrows||[])){const [x1,y1]=sq(a[0],a[1]),[x2,y2]=sq(a[2],a[3]);
-s+=`<line x1="${x1*45+22.5}" y1="${(7-y1)*45+22.5}" x2="${x2*45+22.5}" y2="${(7-y2)*45+22.5}" stroke="${a[4]}" stroke-width="9" stroke-linecap="round" opacity=".85" marker-end="url(#ah-${a[5]})"/>`;}
-for(let f=0;f<8;f++){const [x]=sq(f,0);s+=`<text x="${x*45+38}" y="${8*45-3}" font-size="10" fill="${(f)%2?'#eeeed2':'#769656'}">${'abcdefgh'[f]}</text>`;}
-for(let r=0;r<8;r++){const [,y]=sq(0,r);s+=`<text x="2" y="${(7-y)*45+11}" font-size="10" fill="${r%2?'#769656':'#eeeed2'}">${r+1}</text>`;}
-return s}
+const D=window.__DATA__;const L=D.plies;let i=D.start||0;let flip=D.flip;let trial=null;let sel=null;let timer=null;
+const $=q=>document.querySelector(q);const svg=$('svg.board');
+function sq(f,r){return flip?[7-f,7-r]:[f,r]}
 function uciSq(u){return [u.charCodeAt(0)-97,+u[1]-1]}
-function show(){const p=L[i];const extra={hl:[],arrows:[]};
-if(i>0){const m=L[i-1].uci;if(m){extra.hl.push([...uciSq(m.slice(0,2)),'#f6f669'],[...uciSq(m.slice(2,4)),'#f6f669']);}}
-const cm=D.momentsByPly[i+1];if(cm){const pl=uciSq(cm.played_uci.slice(0,2)),pl2=uciSq(cm.played_uci.slice(2,4));const b1=uciSq(cm.best_uci.slice(0,2)),b2=uciSq(cm.best_uci.slice(2,4));
-extra.arrows.push([...pl,...pl2,'#e5533d','red'],[...b1,...b2,'#3ca63c','green']);}
-document.getElementById('bsq').innerHTML=renderBoard(p.fen,extra);
-const cp=p.cp;const pct=Math.max(4,Math.min(96,50+ (D.userWhite?cp:-cp)/1000*50*0.9));
-document.querySelector('.evalbar i').style.height=pct+'%';document.querySelector('.evalbar b').textContent=p.label;
-document.querySelector('.evalbar b').style.top=(pct>50?'':'auto');document.querySelector('.evalbar b').style.bottom=(pct>50?'0':'');
-document.querySelector('.evalbar b').style.color=(pct>50?'#111':'#eee');
-const now=document.getElementById('now');
-if(cm){const nm=L[i+1];now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${D.userWhite?'trait aux blancs':'trait aux noirs'}</div><div class="mv">${nm.num}${nm.dots}${nm.san} <span style="color:var(--red);font-size:1rem">joué</span></div><div class="ev">${p.label} → ${nm.label} · perte ${nm.loss} cp</div><div style="margin-top:6px"><span class="chip ${nm.sev}">${nm.sevfr}</span><span class="chip tag">${nm.tag}</span><span class="chip best">meilleur : ${cm.best_san}</span></div><p style="margin:10px 0 0;color:var(--muted);font-size:.92rem">${cm.text}</p>`}
+function parseFen(fen){const rows=fen.split(' ')[0].split('/');const b={};for(let r=0;r<8;r++){let f=0;for(const c of rows[r]){if(/\\d/.test(c)){f+=+c;continue}b[f+','+(7-r)]=c;f++}}return b}
+function toFen(b,turn){let rows=[];for(let r=7;r>=0;r--){let s='',e=0;for(let f=0;f<8;f++){const c=b[f+','+r];if(c){if(e){s+=e;e=0}s+=c}else e++}if(e)s+=e;rows.push(s)}return rows.join('/')+' '+turn}
+function applyMove(fen,code){const b=parseFen(fen);const turn=fen.split(' ')[1];const [f1,r1]=uciSq(code.slice(0,2)),[f2,r2]=uciSq(code.slice(2,4));const kind=code[code.length-1];
+let pc=b[f1+','+r1];delete b[f1+','+r1];
+if(kind==='e'){delete b[f2+','+r1]}
+if(kind==='c'){const rookF=f2>f1?7:0,rookT=f2>f1?5:3;const rk=b[rookF+','+r1];delete b[rookF+','+r1];b[rookT+','+r1]=rk}
+if(kind==='p'){const promo=code[4];pc=turn==='w'?promo.toUpperCase():promo}
+b[f2+','+r2]=pc;return toFen(b,turn==='w'?'b':'w')}
+function curFen(){return trial?trial.fen:L[i].fen}
+function renderBoard(fen,extra){const b=parseFen(fen);let s='';
+for(let r=0;r<8;r++)for(let f=0;f<8;f++){const [x,y]=sq(f,r);s+=`<rect class="sqr" x="${x*45}" y="${(7-y)*45}" width="45" height="45" fill="${(f+r)%2?'#eeeed2':'#769656'}"/>`}
+for(const h of (extra.hl||[])){const [x,y]=sq(h[0],h[1]);s+=`<rect x="${x*45}" y="${(7-y)*45}" width="45" height="45" fill="${h[2]}" opacity=".55" pointer-events="none"/>`}
+for(const k in b){const [f,r]=k.split(',').map(Number);const [x,y]=sq(f,r);const c=b[k];const id=(c===c.toUpperCase()?'w':'b')+c.toLowerCase();
+s+=`<use class="pc" data-f="${f}" data-r="${r}" href="#${id}" x="${x*45}" y="${(7-y)*45}" width="45" height="45"/>`}
+for(const t of (extra.dots||[])){const [x,y]=sq(t[0],t[1]);s+=t[2]?`<circle cx="${x*45+22.5}" cy="${(7-y)*45+22.5}" r="20" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="5" pointer-events="none"/>`:`<circle cx="${x*45+22.5}" cy="${(7-y)*45+22.5}" r="7" fill="rgba(0,0,0,.25)" pointer-events="none"/>`}
+for(const a of (extra.arrows||[])){const [x1,y1]=sq(a[0],a[1]),[x2,y2]=sq(a[2],a[3]);s+=`<line x1="${x1*45+22.5}" y1="${(7-y1)*45+22.5}" x2="${x2*45+22.5}" y2="${(7-y2)*45+22.5}" stroke="${a[4]}" stroke-width="9" stroke-linecap="round" opacity=".85" marker-end="url(#ah-${a[5]})" pointer-events="none"/>`}
+for(let f=0;f<8;f++){const [x]=sq(f,0);s+=`<text x="${x*45+38}" y="${8*45-3}" font-size="10" fill="${(flip?f:f+1)%2?'#eeeed2':'#769656'}" pointer-events="none">${'abcdefgh'[f]}</text>`}
+for(let r=0;r<8;r++){const [,y]=sq(0,r);s+=`<text x="2" y="${(7-y)*45+11}" font-size="10" fill="${(flip?r+1:r)%2?'#eeeed2':'#769656'}" pointer-events="none">${r+1}</text>`}
+return s}
+function legalFrom(f,r){const from='abcdefgh'[f]+(r+1);return (L[i].legal||[]).filter(c=>c.startsWith(from))}
+function show(){const p=L[i];const cm=D.momentsByPly[i+1];const extra={hl:[],arrows:[],dots:[]};
+if(trial){extra.hl.push([...uciSq(trial.code.slice(0,2)),'#9bd3f5'],[...uciSq(trial.code.slice(2,4)),'#9bd3f5'])}
+else if(i>0&&L[i].uci){const m=L[i].uci;extra.hl.push([...uciSq(m.slice(0,2)),'#f6f669'],[...uciSq(m.slice(2,4)),'#f6f669'])}
+if(sel){extra.hl.push([sel[0],sel[1],'#f6f669']);const b=parseFen(curFen());for(const c of legalFrom(sel[0],sel[1])){const t=uciSq(c.slice(2,4));extra.dots.push([t[0],t[1],!!b[t[0]+','+t[1]]])}}
+if(cm&&(trial||D.reveal[i+1])){const pl=uciSq(cm.played_uci.slice(0,2)),pl2=uciSq(cm.played_uci.slice(2,4)),b1=uciSq(cm.best_uci.slice(0,2)),b2=uciSq(cm.best_uci.slice(2,4));
+extra.arrows.push([...pl,...pl2,'#e5533d','red'],[...b1,...b2,'#3ca63c','green'])}
+$('#bsq').innerHTML=renderBoard(curFen(),extra);
+const cp=p.cp;const pct=Math.max(4,Math.min(96,50+(D.userWhite?cp:-cp)/1000*50*0.9));const bar=$('.evalbar');
+bar.querySelector('i').style.height=pct+'%';const lab=bar.querySelector('b');lab.textContent=p.label;lab.style.top=pct>50?'':'auto';lab.style.bottom=pct>50?'0':'';lab.style.color=pct>50?'#111':'#eee';
+const now=$('#now');const turnTxt=p.fen.split(' ')[1]==='w'?'trait aux blancs':'trait aux noirs';
+if(cm&&!D.reveal[i+1]&&!trial){const nm=L[i+1];now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}</div><div class="mv">À toi de jouer</div><p style="margin:8px 0 0;color:var(--muted)">Coup ${nm.num} : joue ton coup sur l'échiquier avant de voir le verdict.</p><div style="margin-top:10px"><button class="btn" id="reveal">Voir le verdict sans jouer</button></div>`;
+$('#reveal').onclick=()=>{D.reveal[i+1]=true;show()}}
+else if(cm){const nm=L[i+1];let head='';
+if(trial){const same=c=>c.slice(0,4)===trial.code.slice(0,4);
+if(same(cm.best_uci))head=`<div class="mv" style="color:var(--green)">✔ ${trial.san} — c'est le meilleur coup</div><div class="ev">Stockfish : ${p.label} maintenu</div>`;
+else if(same(cm.played_uci))head=`<div class="mv" style="color:var(--red)">${trial.san} — c'est le coup joué en partie</div><div class="ev">${p.label} → ${nm.label} · perte ${nm.loss} cp</div>`;
+else head=`<div class="mv" style="color:var(--blue)">${trial.san} — coup légal, non évalué</div><div class="ev">Seuls le coup joué et le meilleur coup ont une éval moteur ici ; je ne juge pas ce coup.</div>`}
+else head=`<div class="mv">${nm.num}${nm.dots}${nm.san} <span style="color:var(--red);font-size:1rem">joué</span></div><div class="ev">${p.label} → ${nm.label} · perte ${nm.loss} cp</div>`;
+now.innerHTML=`<div class="ev" style="text-transform:uppercase;letter-spacing:.06em;font-size:.75rem">Moment critique · ${turnTxt}</div>${head}<div style="margin-top:6px"><span class="chip ${nm.sev}">${nm.sevfr}</span><span class="chip tag">${nm.tag}</span><span class="chip best">meilleur : ${cm.best_san}</span></div><p style="margin:10px 0 0;color:var(--muted);font-size:.92rem">${cm.text}</p>`}
+else if(trial){now.innerHTML=`<div class="mv" style="color:var(--blue)">${trial.san} <span style="font-size:1rem">essai</span></div><div class="ev">Coup légal. Pas d'évaluation moteur pour les variantes dans ce bilan.</div>`}
 else if(i===0){now.innerHTML='<div class="mv">Position initiale</div><div class="ev">Éval '+p.label+'</div>'}
-else{const m=L[i-1];const sev=m.sev?`<span class="chip ${m.sev}">${m.sevfr}</span>`:'';const tag=m.tag?`<span class="chip tag">${m.tag}</span>`:'';
-now.innerHTML=`<div class="mv">${m.num}${m.dots}${m.san}</div><div class="ev">${L[i-1].label} → ${p.label}${m.mine&&m.loss>=50?' · perte '+m.loss+' cp':''}</div><div style="margin-top:6px">${sev}${tag}</div>`}
+else{const m=L[i-1];now.innerHTML=`<div class="mv">${m.num}${m.dots}${m.san}</div><div class="ev">${L[i-1].label} → ${p.label}${m.mine&&m.loss>=50?' · perte '+m.loss+' cp':''}</div><div style="margin-top:6px">${m.sev?`<span class="chip ${m.sev}">${m.sevfr}</span>`:''}${m.tag?`<span class="chip tag">${m.tag}</span>`:''}</div>`}
+$('#undo').hidden=!trial;
 document.querySelectorAll('.moves span.m').forEach(e=>e.classList.toggle('cur',+e.dataset.i===i));
-const cur=document.querySelector('.moves span.m.cur');if(cur)cur.scrollIntoView({block:'nearest'});
-document.getElementById('pos').textContent=i+' / '+(L.length-1);
-document.querySelectorAll('.dot').forEach(c=>c.classList.toggle('cur',+c.dataset.i===i));}
-function go(n){i=Math.max(0,Math.min(L.length-1,n));show()}
-document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')go(i-1);if(e.key==='ArrowRight')go(i+1);if(e.key==='Home')go(0);if(e.key==='End')go(L.length-1)});
+const cur=$('.moves span.m.cur');if(cur)cur.scrollIntoView({block:'nearest'});
+$('#pos').textContent=i+' / '+(L.length-1);
+document.querySelectorAll('.dot').forEach(c=>c.classList.toggle('cur',+c.dataset.i===i))}
+function go(n){i=Math.max(0,Math.min(L.length-1,n));trial=null;sel=null;show()}
+function sanOf(code){const b=parseFen(L[i].fen);const pc=b[uciSq(code.slice(0,2)).join(',')]||'';const cap=!!b[uciSq(code.slice(2,4)).join(',')]||code.endsWith('e');const k=code[code.length-1];
+if(k==='c')return code[2]==='g'?'O-O':'O-O-O';const P=pc.toUpperCase()==='P'?(cap?code[0]:''):pc.toUpperCase();return P+(cap?'x':'')+code.slice(2,4)+(k==='p'?'='+code[4].toUpperCase():'')}
+function tryMove(f1,r1,f2,r2){const from='abcdefgh'[f1]+(r1+1),to='abcdefgh'[f2]+(r2+1);let codes=(L[i].legal||[]).filter(c=>c.startsWith(from+to));if(!codes.length)return false;
+let code=codes.find(c=>c[4]==='q')||codes[0];trial={code,fen:applyMove(L[i].fen,code),san:sanOf(code)};sel=null;show();return true}
+let drag=null;
+function squareAt(ev){const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const p=pt.matrixTransform(svg.getScreenCTM().inverse());const x=Math.floor(p.x/45),y=7-Math.floor(p.y/45);if(x<0||x>7||y<0||y>7)return null;return flip?[7-x,7-y]:[x,y]}
+svg.addEventListener('pointerdown',ev=>{if(trial)return;const s=squareAt(ev);if(!s)return;const b=parseFen(L[i].fen);const pc=b[s.join(',')];const turn=L[i].fen.split(' ')[1];
+if(sel&&tryMove(sel[0],sel[1],s[0],s[1]))return;
+if(pc&&((turn==='w')===(pc===pc.toUpperCase()))&&legalFrom(s[0],s[1]).length){sel=s;show();const el=[...svg.querySelectorAll('.pc')].find(e=>+e.dataset.f===s[0]&&+e.dataset.r===s[1]);drag={from:s,el};svg.setPointerCapture(ev.pointerId)}else{sel=null;show()}});
+svg.addEventListener('pointermove',ev=>{if(!drag||!drag.el)return;const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const p=pt.matrixTransform(svg.getScreenCTM().inverse());drag.el.setAttribute('x',p.x-22.5);drag.el.setAttribute('y',p.y-22.5);drag.el.style.pointerEvents='none';drag.moved=true});
+svg.addEventListener('pointerup',ev=>{if(!drag)return;const s=squareAt(ev);const d=drag;drag=null;if(s&&d.moved&&!(s[0]===d.from[0]&&s[1]===d.from[1])){if(!tryMove(d.from[0],d.from[1],s[0],s[1])){sel=null;show()}}else if(d.moved){show()}});
+$('#undo').onclick=()=>{trial=null;show()};$('#flip').onclick=()=>{flip=!flip;show()};
+$('#auto').onclick=()=>{if(timer){clearInterval(timer);timer=null;$('#auto').textContent='▶▶';return}$('#auto').textContent='⏸';timer=setInterval(()=>{if(i>=L.length-1){clearInterval(timer);timer=null;$('#auto').textContent='▶▶';return}go(i+1)},900)};
+document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')go(i-1);if(e.key==='ArrowRight')go(i+1);if(e.key==='Home')go(0);if(e.key==='End')go(L.length-1);if(e.key==='Escape'){trial=null;sel=null;show()}});
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{const v=b.dataset.go;go(v==='+'?i+1:v==='-'?i-1:v==='0'?0:v==='$'?L.length-1:+v)}));
 document.querySelectorAll('.moves span.m,.dot,.moment').forEach(e=>e.addEventListener('click',()=>{go(+e.dataset.i);if(e.classList.contains('moment'))window.scrollTo({top:0,behavior:'smooth'})}));
 show();
@@ -119,6 +150,16 @@ def piece_symbols() -> str:
         for n, c in (("red", "#e5533d"), ("green", "#3ca63c"))
     )
     return f'<svg width="0" height="0" style="position:absolute"><defs>{"".join(out)}{arrows}</defs></svg>'
+
+
+def legal_moves(board: chess.Board) -> list[str]:
+    """Coups légaux encodés « uci + type » : n normal, c roque, e prise en passant, p promotion (python-chess,
+    jamais recalculé en JS)."""
+    out = []
+    for m in board.legal_moves:
+        kind = "c" if board.is_castling(m) else "e" if board.is_en_passant(m) else "p" if m.promotion else "n"
+        out.append(m.uci() + kind)
+    return out
 
 
 def eval_label(e) -> str:
@@ -181,7 +222,15 @@ def game_page(conn: sqlite3.Connection, game: sqlite3.Row) -> str:
         for r in conn.execute("SELECT * FROM critical_moments WHERE game_id = ? ORDER BY ply", (game["id"],))
     }
     board = chess.Board(evals[0].fen)
-    plies = [{"fen": evals[0].fen, "cp": evals[0].to_cp(), "label": eval_label(evals[0]), "uci": None}]
+    plies = [
+        {
+            "fen": evals[0].fen,
+            "cp": evals[0].to_cp(),
+            "label": eval_label(evals[0]),
+            "uci": None,
+            "legal": legal_moves(board),
+        }
+    ]
     for k, san in enumerate(sans):
         mv = board.parse_san(san)
         ml = losses[k]
@@ -194,6 +243,7 @@ def game_page(conn: sqlite3.Connection, game: sqlite3.Row) -> str:
                 "cp": e.to_cp(),
                 "label": eval_label(e),
                 "uci": mv.uci(),
+                "legal": legal_moves(board),
                 "san": san,
                 "num": (k + 2) // 2,
                 "dots": "." if k % 2 == 0 else "…",
@@ -243,6 +293,7 @@ def game_page(conn: sqlite3.Connection, game: sqlite3.Row) -> str:
         "userWhite": user_white,
         "flip": not user_white,
         "start": min(cms) - 1 if cms else 0,
+        "reveal": {},
     }
     return f"""<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Partie n° {game["game_number"]} — ChessCoach</title><style>{CSS}</style><body><div class="wrap">{piece_symbols()}
@@ -250,8 +301,8 @@ def game_page(conn: sqlite3.Connection, game: sqlite3.Row) -> str:
 <div class="meta"><span>{game["played_at"][:10]}</span><span>{game["time_class"]} {game["time_control"]}</span><span>Résultat : <b class="{game["user_result"]}">{game["user_result"]}</b></span><span><a href="{game["url"]}">Chess.com ↗</a></span></div>
 <div class="viewer"><div>
 <div class="boardwrap"><div class="evalbar"><i></i><b></b></div><svg class="board" viewBox="0 0 360 360"><g id="bsq"></g></svg></div>
-<div class="ctrl"><button data-go="0">⏮</button><button data-go="-">◀</button><button data-go="+">▶</button><button data-go="$">⏭</button><span class="pos" id="pos"></span></div>
-<div class="legend">Flèches : <i style="background:#e5533d"></i>coup joué <i style="background:#3ca63c"></i>meilleur coup · ← → au clavier</div>
+<div class="ctrl"><button data-go="0" title="début">⏮</button><button data-go="-" title="précédent">◀</button><button data-go="+" title="suivant">▶</button><button data-go="$" title="fin">⏭</button><button id="auto" title="lecture automatique">▶▶</button><button id="flip" title="retourner">⟲</button><button id="undo" title="annuler l'essai" hidden>↩ essai</button><span class="pos" id="pos"></span></div>
+<div class="legend">Déplace une pièce pour essayer un coup · <i style="background:#e5533d"></i>joué <i style="background:#3ca63c"></i>meilleur · ← → au clavier</div>
 </div><div class="side"><div class="card now" id="now"></div><div class="card moves">{"".join(moves_html)}</div></div></div>
 <h2>Courbe d'évaluation</h2><div class="card">{curve_svg(plies, cms, user_white)}
 <div class="summary"><span class="k"><i style="background:#e5533d"></i>{sev["blunder"]} gaffes</span><span class="k"><i style="background:#e89b3c"></i>{sev["mistake"]} erreurs</span><span class="k"><i style="background:#e6c84a"></i>{sev["inaccuracy"]} imprécisions</span><span>perte moyenne / coup : <b>{avg:.0f} cp</b></span></div></div>
