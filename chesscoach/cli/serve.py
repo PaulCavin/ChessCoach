@@ -3,6 +3,7 @@
 ``python -m chesscoach.cli.serve --username Kuga06 [--port 8765] [--games 10]``
 Routes : GET /            index des parties
          GET /game/<n>    bilan de la partie n° n
+         GET /progress    progression par tag (FSRS + motif dans les parties réelles)
          POST /api/answer {game_number, ply, san, plan, confidence, verdict}
 """
 
@@ -19,6 +20,7 @@ from pathlib import Path
 from chesscoach import db
 from chesscoach.memory.learner import Answer, record_answer, sync_markdown
 from chesscoach.report.html import game_page, index_page
+from chesscoach.report.progress import build as progress_page
 
 
 class App:
@@ -83,6 +85,8 @@ def make_handler(app: App):
         def do_GET(self) -> None:  # noqa: N802
             if self.path in ("/", "/index.html"):
                 return self._send(200, app.index())
+            if self.path in ("/progress", "/progress.html"):
+                return self._send(200, progress_page(app.conn(), app.username))
             if self.path == "/api/ping":
                 return self._send(200, '{"ok": true}', "application/json")
             if self.path.startswith("/game/"):

@@ -339,7 +339,8 @@ def index_page(games: list[sqlite3.Row], username: str, served: bool = False) ->
         )
     return f"""<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ChessCoach — {html.escape(username)}</title><style>{CSS}</style><body><div class="wrap">
-<div class="top"><h1>Bilans de parties · {html.escape(username)}</h1><span class="meta">{len(games)} dernières parties analysées</span></div>
+<div class="top"><h1>Bilans de parties · {html.escape(username)}</h1><a href="{"/progress" if served else "progress.html"}">Progression par tag →</a></div>
+<div class="meta">{len(games)} dernières parties analysées</div>
 <div class="card" style="padding:0;overflow:auto"><table class="idx"><tr><th>Partie</th><th>Date</th><th>Couleur</th><th>Adversaire</th><th>Résultat</th><th>Moments critiques</th></tr>{"".join(rows)}</table></div>
 </div></body></html>"""
 

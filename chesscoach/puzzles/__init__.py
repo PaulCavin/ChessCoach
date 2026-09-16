@@ -1,1 +1,1 @@
-"""Phase 0 : squelette. Voir docs/decisions.md."""
+"""Puzzles Lichess (base CC0) : import filtré par thème et sélection par tag."""

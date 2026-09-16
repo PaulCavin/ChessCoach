@@ -10,7 +10,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 MIN_COMPATIBLE_VERSION = 4  # v4 a changé la clé des parties : base < 4 -> supprimer et ré-ingérer
 
 SCHEMA = """
@@ -130,6 +130,46 @@ CREATE TABLE IF NOT EXISTS learner_events (
     kind            TEXT NOT NULL DEFAULT 'answer' CHECK (kind IN ('answer', 'exercise'))
 );
 CREATE INDEX IF NOT EXISTS idx_le_user_tag ON learner_events (username, primary_tag, ts);
+
+-- Phase 3 (D-013). État FSRS par tag : dérivé des learner_events, recalculable de zéro.
+CREATE TABLE IF NOT EXISTS tag_schedule (
+    username        TEXT NOT NULL,
+    tag             TEXT NOT NULL,
+    stability       REAL NOT NULL,              -- jours
+    difficulty      REAL NOT NULL,              -- 1 à 10
+    reps            INTEGER NOT NULL,
+    lapses          INTEGER NOT NULL,
+    last_review     TEXT NOT NULL,              -- ISO 8601 UTC
+    due             TEXT NOT NULL,              -- ISO 8601 UTC
+    state           TEXT NOT NULL CHECK (state IN ('learning', 'review', 'retired')),
+    PRIMARY KEY (username, tag)
+);
+
+-- Phase 3 (D-014). Puzzles Lichess (CC0) filtrés par thème et par cote.
+CREATE TABLE IF NOT EXISTS puzzles (
+    id              TEXT PRIMARY KEY,           -- PuzzleId Lichess
+    fen             TEXT NOT NULL,              -- position AVANT le coup adverse d'amorce
+    moves           TEXT NOT NULL,              -- UCI séparés par des espaces (1er = coup adverse)
+    rating          INTEGER NOT NULL,
+    popularity      INTEGER,
+    nb_plays        INTEGER,
+    themes          TEXT NOT NULL,              -- thèmes Lichess bruts
+    tags            TEXT NOT NULL,              -- tags ChessCoach correspondants, séparés par des virgules
+    game_url        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_puzzles_rating ON puzzles (rating);
+
+-- Tentatives de puzzles (alimente FSRS au même titre que les moments critiques).
+CREATE TABLE IF NOT EXISTS puzzle_attempts (
+    id              INTEGER PRIMARY KEY,
+    ts              TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    username        TEXT NOT NULL,
+    puzzle_id       TEXT NOT NULL REFERENCES puzzles (id) ON DELETE CASCADE,
+    tag             TEXT NOT NULL,
+    solved          INTEGER NOT NULL,           -- 0/1
+    first_try       INTEGER NOT NULL            -- 0/1 : réussi sans erreur
+);
+CREATE INDEX IF NOT EXISTS idx_pa_user_tag ON puzzle_attempts (username, tag, ts);
 """
 
 

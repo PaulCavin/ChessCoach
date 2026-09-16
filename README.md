@@ -57,6 +57,17 @@ puis le verdict s'affiche. Tes réponses vont dans SQLite (`learner_events`) et 
 `memory/learner/` (Markdown à frontmatter, compatible Obsidian ; la section « Notes »
 de chaque fichier t'appartient et n'est jamais réécrite).
 
+## Puzzles et rappel espacé (phase 3)
+
+```bash
+# import filtré de la base Lichess (CC0) : thèmes de la taxonomie + plage de cote, en flux
+python -m chesscoach.puzzles.lichess --min-rating 600 --max-rating 1400 --limit-per-tag 400
+# plan de révision du jour (FSRS sur les tags) + puzzles proposés
+python -m chesscoach.cli.review --username <username>
+# page de progression : courbe hebdomadaire du motif dans les parties réelles
+python -m chesscoach.report.progress --username <username> --weeks 8
+```
+
 ## Requêter le corpus
 
 ```bash

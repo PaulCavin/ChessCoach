@@ -395,3 +395,54 @@ idempotente). Les notes `tags/<tag>.md` distinguent réponses et exercices
 **Raison.** Zéro dépendance nouvelle, cohérent avec l'oracle (seuls le coup
 joué et le meilleur coup sont évalués), et fournit dès maintenant la mesure
 « taux de réussite en exercice » dont FSRS aura besoin en phase 3.
+
+---
+
+## D-013 — FSRS appliqué aux tags, et règle de sortie d'un tag (2026-09-16, adoptée)
+
+**Contexte.** Étape 6 de la boucle : rappel espacé sur les tags, sortie du tag
+quand « le taux de réussite monte ET que le motif recule dans les parties
+réelles ».
+
+**Choix.**
+- `memory/fsrs.py` : FSRS-5, paramètres par défaut publiés, implémentation pure
+  (aucune dépendance). L'« item » révisé n'est **pas** une carte mais un **tag**
+  de la taxonomie : un tag = une courbe de mémorisation.
+- Traduction déterministe verdict → note FSRS : `best` + confiance ≥ 80 → Easy ;
+  `best` → Good ; `other` (coup légal non évalué) → Hard ; `played` (l'erreur de
+  la partie rejouée) → Again. Les puzzles alimentent la même file (réussi du
+  premier coup → Good, réussi avec erreur → Hard, échoué → Again).
+- `tag_schedule` (schéma v7) est **dérivé** : `rebuild_schedule()` rejoue tout
+  l'historique dans l'ordre et redonne le même état (testé). Aucune donnée
+  n'est perdue si la table est supprimée.
+- **Sortie d'un tag** (`apply_retirements`) : au moins 5 révisions, réussite
+  ≥ 80 %, **et** occurrences par partie en baisse sur les 20 dernières parties
+  analysées par rapport aux précédentes. Les deux conditions sont mesurées sur
+  l'oracle, jamais estimées.
+- L'état FSRS et la tendance sont écrits dans le frontmatter des notes
+  `tags/<tag>.md` (`fsrs_state`, `fsrs_stability_days`, `due`,
+  `recent_per_game`, `baseline_per_game`, `declining`).
+
+**Raison.** Un tag est ce que l'apprenant doit retenir ; planifier des tags
+plutôt que des positions évite d'entraîner la mémoire d'une position précise.
+
+---
+
+## D-014 — Import Lichess filtré et tags sans puzzle (2026-09-16, adoptée)
+
+**Choix.** `puzzles/lichess.py` lit la base CC0 depuis un fichier, un `.zst` ou
+directement l'URL officielle **en flux**, ne garde que les lignes dont un thème
+correspond à un tag et dont la cote est dans la plage de l'apprenant, et
+s'arrête dès les quotas atteints. Mesure réelle (2026-09-16, cotes 600-1400,
+quota 400/tag) : **2523 puzzles, 36 s, 1,2 Mo en base** — bien moins que les
+~900 Mo redoutés.
+
+**Constat vérifié** : le thème Lichess `exchange` **n'existe pas** (0 occurrence
+sur la base complète). `unnecessary_exchange` rejoint donc `time_pressure`
+parmi les tags **sans puzzle**, servis par la position rejouée (D-012).
+`ignored_threat` gagne `capturingDefender` en plus de `defensiveMove`.
+Un test échoue si un autre tag se retrouve sans thème.
+
+Répartition obtenue : calculation_error 1552, endgame_technique 1019,
+missed_mate 964, king_safety 485, opening_principle 480, hanging_piece 419,
+ignored_threat 413, passive_piece 400.

@@ -29,8 +29,10 @@ TAGS: tuple[Tag, ...] = tuple(Tag)
 LICHESS_THEMES: dict[Tag, tuple[str, ...]] = {
     Tag.HANGING_PIECE: ("hangingPiece",),
     Tag.MISSED_MATE: ("mate", "mateIn1", "mateIn2", "mateIn3"),
-    Tag.IGNORED_THREAT: ("defensiveMove",),
-    Tag.UNNECESSARY_EXCHANGE: ("exchange",),
+    Tag.IGNORED_THREAT: ("defensiveMove", "capturingDefender"),
+    # Aucun thème Lichess ne décrit un échange inutile (vérifié sur la base complète,
+    # 2026-09-16) : ce tag est servi par la position rejouée. Voir D-014.
+    Tag.UNNECESSARY_EXCHANGE: (),
     Tag.KING_SAFETY: ("kingsideAttack", "queensideAttack", "exposedKing"),
     Tag.PASSIVE_PIECE: ("trappedPiece",),
     Tag.OPENING_PRINCIPLE: ("opening",),

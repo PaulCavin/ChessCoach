@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from chesscoach.memory.fsrs import load_card
+from chesscoach.memory.progress import apply_retirements, rebuild_schedule, tag_progress
 from chesscoach.taxonomy.tags import Tag
 
 NOTES_HEADER = "## Notes"
@@ -127,6 +129,8 @@ def write_tag_notes(conn: sqlite3.Connection, username: str, root: Path) -> list
         n = len(rows)
         best = sum(1 for r in rows if r["verdict"] == "best")
         ex = [r for r in rows if r["kind"] == "exercise"]
+        card = load_card(conn, username, tag.value)
+        prog = tag_progress(conn, username, tag.value)
         conf = [r["confidence"] for r in rows if r["confidence"] is not None]
         front = _yaml(
             {
@@ -141,6 +145,13 @@ def write_tag_notes(conn: sqlite3.Connection, username: str, root: Path) -> list
                 else None,
                 "avg_confidence": round(sum(conf) / len(conf)) if conf else None,
                 "last_seen": rows[-1]["ts"][:10] if rows else None,
+                "fsrs_state": card.state if card else None,
+                "fsrs_stability_days": round(card.stability, 1) if card else None,
+                "fsrs_difficulty": round(card.difficulty, 1) if card else None,
+                "due": card.due.strftime("%Y-%m-%d") if card and card.due else None,
+                "recent_per_game": round(prog.recent_per_game, 2) if prog.recent_per_game is not None else None,
+                "baseline_per_game": round(prog.baseline_per_game, 2) if prog.baseline_per_game is not None else None,
+                "declining": prog.declining,
                 "updated": datetime.now(tz=UTC).strftime("%Y-%m-%d"),
             }
         )
@@ -227,6 +238,9 @@ def write_profile(conn: sqlite3.Connection, username: str, root: Path) -> Path:
 
 
 def sync_markdown(conn: sqlite3.Connection, username: str, game_id: int | None, root: Path) -> list[Path]:
+    """Recalcule le planning FSRS, applique les sorties de tag, puis réécrit les notes."""
+    rebuild_schedule(conn, username)
+    apply_retirements(conn, username)
     out = [write_profile(conn, username, root), *write_tag_notes(conn, username, root)]
     if game_id is not None:
         out.append(write_session_note(conn, username, game_id, root))

@@ -22,3 +22,9 @@ def test_taxonomy_is_frozen():
 
 def test_every_tag_has_a_lichess_mapping_entry():
     assert set(LICHESS_THEMES) == set(Tag)
+
+
+def test_tags_without_lichess_theme_are_documented():
+    # Ces deux tags n'ont aucun thème Lichess correspondant (D-014) : ils sont servis par la
+    # position rejouée, pas par des puzzles. Tout autre tag vide serait une régression du mapping.
+    assert {t for t, themes in LICHESS_THEMES.items() if not themes} == {Tag.TIME_PRESSURE, Tag.UNNECESSARY_EXCHANGE}
