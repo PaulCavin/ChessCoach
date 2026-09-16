@@ -19,6 +19,7 @@ from chesscoach.agents.critic import abstention
 from chesscoach.agents.facts import build_facts
 from chesscoach.engine.analyse import load_evals
 from chesscoach.engine.analysis import move_losses
+from chesscoach.report.board import BOARD_JS, legal_moves, piece_symbols
 from chesscoach.report.render import TAG_LABEL
 
 SEV_FR = {"blunder": "Gaffe", "mistake": "Erreur", "inaccuracy": "Imprécision"}
@@ -63,29 +64,9 @@ table.idx td{padding:10px;border-bottom:1px solid var(--line)}table.idx tr:hover
 """
 
 JS = """
-const D=window.__DATA__;const L=D.plies;let i=D.start||0;let flip=D.flip;let trial=null;let sel=null;let timer=null;const form={};let saved=null;let ex=null;
-const $=q=>document.querySelector(q);const svg=$('svg.board');
-function sq(f,r){return flip?[7-f,7-r]:[f,r]}
-function uciSq(u){return [u.charCodeAt(0)-97,+u[1]-1]}
-function parseFen(fen){const rows=fen.split(' ')[0].split('/');const b={};for(let r=0;r<8;r++){let f=0;for(const c of rows[r]){if(/\\d/.test(c)){f+=+c;continue}b[f+','+(7-r)]=c;f++}}return b}
-function toFen(b,turn){let rows=[];for(let r=7;r>=0;r--){let s='',e=0;for(let f=0;f<8;f++){const c=b[f+','+r];if(c){if(e){s+=e;e=0}s+=c}else e++}if(e)s+=e;rows.push(s)}return rows.join('/')+' '+turn}
-function applyMove(fen,code){const b=parseFen(fen);const turn=fen.split(' ')[1];const [f1,r1]=uciSq(code.slice(0,2)),[f2,r2]=uciSq(code.slice(2,4));const kind=code[code.length-1];
-let pc=b[f1+','+r1];delete b[f1+','+r1];
-if(kind==='e'){delete b[f2+','+r1]}
-if(kind==='c'){const rookF=f2>f1?7:0,rookT=f2>f1?5:3;const rk=b[rookF+','+r1];delete b[rookF+','+r1];b[rookT+','+r1]=rk}
-if(kind==='p'){const promo=code[4];pc=turn==='w'?promo.toUpperCase():promo}
-b[f2+','+r2]=pc;return toFen(b,turn==='w'?'b':'w')}
+const D=window.__DATA__;const L=D.plies;let i=D.start||0;flip=D.flip;let trial=null;let sel=null;let timer=null;const form={};let saved=null;let ex=null;
+const svg=$('svg.board');
 function curFen(){return trial?trial.fen:L[i].fen}
-function renderBoard(fen,extra){const b=parseFen(fen);let s='';
-for(let r=0;r<8;r++)for(let f=0;f<8;f++){const [x,y]=sq(f,r);s+=`<rect class="sqr" x="${x*45}" y="${(7-y)*45}" width="45" height="45" fill="${(f+r)%2?'#eeeed2':'#769656'}"/>`}
-for(const h of (extra.hl||[])){const [x,y]=sq(h[0],h[1]);s+=`<rect x="${x*45}" y="${(7-y)*45}" width="45" height="45" fill="${h[2]}" opacity=".55" pointer-events="none"/>`}
-for(const k in b){const [f,r]=k.split(',').map(Number);const [x,y]=sq(f,r);const c=b[k];const id=(c===c.toUpperCase()?'w':'b')+c.toLowerCase();
-s+=`<use class="pc" data-f="${f}" data-r="${r}" href="#${id}" x="${x*45}" y="${(7-y)*45}" width="45" height="45"/>`}
-for(const t of (extra.dots||[])){const [x,y]=sq(t[0],t[1]);s+=t[2]?`<circle cx="${x*45+22.5}" cy="${(7-y)*45+22.5}" r="20" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="5" pointer-events="none"/>`:`<circle cx="${x*45+22.5}" cy="${(7-y)*45+22.5}" r="7" fill="rgba(0,0,0,.25)" pointer-events="none"/>`}
-for(const a of (extra.arrows||[])){const [x1,y1]=sq(a[0],a[1]),[x2,y2]=sq(a[2],a[3]);s+=`<line x1="${x1*45+22.5}" y1="${(7-y1)*45+22.5}" x2="${x2*45+22.5}" y2="${(7-y2)*45+22.5}" stroke="${a[4]}" stroke-width="9" stroke-linecap="round" opacity=".85" marker-end="url(#ah-${a[5]})" pointer-events="none"/>`}
-for(let f=0;f<8;f++){const [x]=sq(f,0);s+=`<text x="${x*45+38}" y="${8*45-3}" font-size="10" fill="${(flip?f:f+1)%2?'#eeeed2':'#769656'}" pointer-events="none">${'abcdefgh'[f]}</text>`}
-for(let r=0;r<8;r++){const [,y]=sq(0,r);s+=`<text x="2" y="${(7-y)*45+11}" font-size="10" fill="${(flip?r+1:r)%2?'#eeeed2':'#769656'}" pointer-events="none">${r+1}</text>`}
-return s}
 function legalFrom(f,r){const from='abcdefgh'[f]+(r+1);return (L[i].legal||[]).filter(c=>c.startsWith(from))}
 function show(){const p=L[i];const cm=D.momentsByPly[i+1];const extra={hl:[],arrows:[],dots:[]};
 if(trial){extra.hl.push([...uciSq(trial.code.slice(0,2)),'#9bd3f5'],[...uciSq(trial.code.slice(2,4)),'#9bd3f5'])}
@@ -125,21 +106,18 @@ const cur=$('.moves span.m.cur');if(cur)cur.scrollIntoView({block:'nearest'});
 $('#pos').textContent=i+' / '+(L.length-1);
 document.querySelectorAll('.dot').forEach(c=>c.classList.toggle('cur',+c.dataset.i===i))}
 function go(n){const t=Math.max(0,Math.min(L.length-1,n));if(ex&&(t>ex.target||t<ex.at))ex=null;i=t;trial=null;sel=null;show()}
-function sanOf(code){const b=parseFen(L[i].fen);const pc=b[uciSq(code.slice(0,2)).join(',')]||'';const cap=!!b[uciSq(code.slice(2,4)).join(',')]||code.endsWith('e');const k=code[code.length-1];
-if(k==='c')return code[2]==='g'?'O-O':'O-O-O';const P=pc.toUpperCase()==='P'?(cap?code[0]:''):pc.toUpperCase();return P+(cap?'x':'')+code.slice(2,4)+(k==='p'?'='+code[4].toUpperCase():'')}
 function tryMove(f1,r1,f2,r2){const from='abcdefgh'[f1]+(r1+1),to='abcdefgh'[f2]+(r2+1);let codes=(L[i].legal||[]).filter(c=>c.startsWith(from+to));if(!codes.length)return false;
-let code=codes.find(c=>c[4]==='q')||codes[0];trial={code,fen:applyMove(L[i].fen,code),san:sanOf(code)};sel=null;
+let code=codes.find(c=>c[4]==='q')||codes[0];trial={code,fen:applyMove(L[i].fen,code),san:sanOf(L[i].fen,code)};sel=null;
 const cm=D.momentsByPly[i+1];if(cm&&D.served&&!D.reveal[i+1]){const same=c=>c.slice(0,4)===code.slice(0,4);const verdict=same(cm.best_uci)?'best':same(cm.played_uci)?'played':'other';const f=form[i]||{plan:'',conf:50};saved='…';
 const kind=(ex&&ex.target===i)?'exercise':'answer';if(kind==='exercise'){D.exdone[i+1]=verdict==='best'?'✔ meilleur coup trouvé':'✖ ('+trial.san+')';ex=null}
 fetch('/api/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game_number:D.gameNumber,ply:i+1,san:trial.san,plan:f.plan,confidence:f.conf,verdict,kind})}).then(r=>r.json()).then(j=>{saved=j.ok?'enregistré ✓':'erreur : '+j.error;show()}).catch(()=>{saved='serveur injoignable';show()})}
 else saved=null;show();return true}
 let drag=null;
-function squareAt(ev){const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const p=pt.matrixTransform(svg.getScreenCTM().inverse());const x=Math.floor(p.x/45),y=7-Math.floor(p.y/45);if(x<0||x>7||y<0||y>7)return null;return flip?[7-x,7-y]:[x,y]}
-svg.addEventListener('pointerdown',ev=>{if(trial)return;const s=squareAt(ev);if(!s)return;const b=parseFen(L[i].fen);const pc=b[s.join(',')];const turn=L[i].fen.split(' ')[1];
+svg.addEventListener('pointerdown',ev=>{if(trial)return;const s=squareAt(svg,ev);if(!s)return;const b=parseFen(L[i].fen);const pc=b[s.join(',')];const turn=L[i].fen.split(' ')[1];
 if(sel&&tryMove(sel[0],sel[1],s[0],s[1]))return;
 if(pc&&((turn==='w')===(pc===pc.toUpperCase()))&&legalFrom(s[0],s[1]).length){sel=s;show();const el=[...svg.querySelectorAll('.pc')].find(e=>+e.dataset.f===s[0]&&+e.dataset.r===s[1]);drag={from:s,el};svg.setPointerCapture(ev.pointerId)}else{sel=null;show()}});
 svg.addEventListener('pointermove',ev=>{if(!drag||!drag.el)return;const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const p=pt.matrixTransform(svg.getScreenCTM().inverse());drag.el.setAttribute('x',p.x-22.5);drag.el.setAttribute('y',p.y-22.5);drag.el.style.pointerEvents='none';drag.moved=true});
-svg.addEventListener('pointerup',ev=>{if(!drag)return;const s=squareAt(ev);const d=drag;drag=null;if(s&&d.moved&&!(s[0]===d.from[0]&&s[1]===d.from[1])){if(!tryMove(d.from[0],d.from[1],s[0],s[1])){sel=null;show()}}else if(d.moved){show()}});
+svg.addEventListener('pointerup',ev=>{if(!drag)return;const s=squareAt(svg,ev);const d=drag;drag=null;if(s&&d.moved&&!(s[0]===d.from[0]&&s[1]===d.from[1])){if(!tryMove(d.from[0],d.from[1],s[0],s[1])){sel=null;show()}}else if(d.moved){show()}});
 $('#undo').onclick=()=>{trial=null;show()};$('#flip').onclick=()=>{flip=!flip;show()};
 $('#auto').onclick=()=>{if(timer){clearInterval(timer);timer=null;$('#auto').textContent='▶▶';return}$('#auto').textContent='⏸';timer=setInterval(()=>{if(i>=L.length-1){clearInterval(timer);timer=null;$('#auto').textContent='▶▶';return}go(i+1)},900)};
 document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')go(i-1);if(e.key==='ArrowRight')go(i+1);if(e.key==='Home')go(0);if(e.key==='End')go(L.length-1);if(e.key==='Escape'){trial=null;sel=null;show()}});
@@ -147,33 +125,6 @@ document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=
 document.querySelectorAll('.moves span.m,.dot,.moment').forEach(e=>e.addEventListener('click',()=>{go(+e.dataset.i);if(e.classList.contains('moment'))window.scrollTo({top:0,behavior:'smooth'})}));
 show();
 """
-
-
-def piece_symbols() -> str:
-    """Les 12 pièces SVG de python-chess, une seule fois, réutilisées par <use>."""
-    out = []
-    for color in (chess.WHITE, chess.BLACK):
-        for pt in chess.PIECE_TYPES:
-            svg = chess.svg.piece(chess.Piece(pt, color))
-            inner = svg[svg.index(">") + 1 : svg.rindex("</svg>")]
-            pid = ("w" if color else "b") + chess.piece_symbol(pt)
-            out.append(f'<symbol id="{pid}" viewBox="0 0 45 45">{inner}</symbol>')
-    arrows = "".join(
-        f'<marker id="ah-{n}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="2.2" markerHeight="2.2" orient="auto">'
-        f'<path d="M0,0 L10,5 L0,10 z" fill="{c}"/></marker>'
-        for n, c in (("red", "#e5533d"), ("green", "#3ca63c"))
-    )
-    return f'<svg width="0" height="0" style="position:absolute"><defs>{"".join(out)}{arrows}</defs></svg>'
-
-
-def legal_moves(board: chess.Board) -> list[str]:
-    """Coups légaux encodés « uci + type » : n normal, c roque, e prise en passant, p promotion (python-chess,
-    jamais recalculé en JS)."""
-    out = []
-    for m in board.legal_moves:
-        kind = "c" if board.is_castling(m) else "e" if board.is_en_passant(m) else "p" if m.promotion else "n"
-        out.append(m.uci() + kind)
-    return out
 
 
 def eval_label(e) -> str:
@@ -324,7 +275,7 @@ def game_page(conn: sqlite3.Connection, game: sqlite3.Row, served: bool = False)
 <h2>Courbe d'évaluation</h2><div class="card">{curve_svg(plies, cms, user_white)}
 <div class="summary"><span class="k"><i style="background:#e5533d"></i>{sev["blunder"]} gaffes</span><span class="k"><i style="background:#e89b3c"></i>{sev["mistake"]} erreurs</span><span class="k"><i style="background:#e6c84a"></i>{sev["inaccuracy"]} imprécisions</span><span>perte moyenne / coup : <b>{avg:.0f} cp</b></span></div></div>
 <h2>Moments critiques ({len(cards)})</h2>{"".join(cards)}
-<script>window.__DATA__={json.dumps(data, ensure_ascii=False)};{JS}</script></div></body></html>"""
+<script>window.__DATA__={json.dumps(data, ensure_ascii=False)};{BOARD_JS}{JS}</script></div></body></html>"""
 
 
 def index_page(games: list[sqlite3.Row], username: str, served: bool = False) -> str:
@@ -339,7 +290,7 @@ def index_page(games: list[sqlite3.Row], username: str, served: bool = False) ->
         )
     return f"""<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ChessCoach — {html.escape(username)}</title><style>{CSS}</style><body><div class="wrap">
-<div class="top"><h1>Bilans de parties · {html.escape(username)}</h1><a href="{"/progress" if served else "progress.html"}">Progression par tag →</a></div>
+<div class="top"><h1>Bilans de parties · {html.escape(username)}</h1><span>{'<a href="/puzzle">Puzzles</a> · ' if served else ""}<a href="{"/progress" if served else "progress.html"}">Progression par tag →</a></span></div>
 <div class="meta">{len(games)} dernières parties analysées</div>
 <div class="card" style="padding:0;overflow:auto"><table class="idx"><tr><th>Partie</th><th>Date</th><th>Couleur</th><th>Adversaire</th><th>Résultat</th><th>Moments critiques</th></tr>{"".join(rows)}</table></div>
 </div></body></html>"""

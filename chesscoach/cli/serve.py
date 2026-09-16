@@ -4,7 +4,9 @@
 Routes : GET /            index des parties
          GET /game/<n>    bilan de la partie n° n
          GET /progress    progression par tag (FSRS + motif dans les parties réelles)
-         POST /api/answer {game_number, ply, san, plan, confidence, verdict}
+         GET /puzzle[/<tag>]  puzzles Lichess jouables (tag dû par défaut)
+         POST /api/answer {game_number, ply, san, plan, confidence, verdict, kind}
+         POST /api/puzzle {puzzle_id, tag, solved, first_try}
 """
 
 from __future__ import annotations
@@ -19,8 +21,12 @@ from pathlib import Path
 
 from chesscoach import db
 from chesscoach.memory.learner import Answer, record_answer, sync_markdown
+from chesscoach.memory.fsrs import load_card
+from chesscoach.memory.progress import rebuild_schedule
+from chesscoach.puzzles.select import record_attempt
 from chesscoach.report.html import game_page, index_page
 from chesscoach.report.progress import build as progress_page
+from chesscoach.report.puzzle import build as puzzle_page
 
 
 class App:
@@ -48,6 +54,25 @@ class App:
         if g is None or conn.execute("SELECT 1 FROM analysed_games WHERE game_id = ?", (g["id"],)).fetchone() is None:
             return None
         return game_page(conn, g, served=True)
+
+    def puzzles(self, tag: str | None) -> str:
+        return puzzle_page(self.conn(), self.username, tag)
+
+    def puzzle_result(self, payload: dict) -> dict:
+        conn = self.conn()
+        tag = str(payload["tag"])
+        with self.lock:
+            record_attempt(
+                conn,
+                self.username,
+                str(payload["puzzle_id"]),
+                tag,
+                solved=bool(payload.get("solved")),
+                first_try=bool(payload.get("first_try")),
+            )
+            rebuild_schedule(conn, self.username)
+        card = load_card(conn, self.username, tag)
+        return {"ok": True, "due": card.due.strftime("%Y-%m-%d") if card and card.due else None}
 
     def answer(self, payload: dict) -> dict:
         conn = self.conn()
@@ -87,6 +112,9 @@ def make_handler(app: App):
                 return self._send(200, app.index())
             if self.path in ("/progress", "/progress.html"):
                 return self._send(200, progress_page(app.conn(), app.username))
+            if self.path == "/puzzle" or self.path.startswith("/puzzle/"):
+                tag = self.path[8:] or None
+                return self._send(200, app.puzzles(tag))
             if self.path == "/api/ping":
                 return self._send(200, '{"ok": true}', "application/json")
             if self.path.startswith("/game/"):
@@ -99,12 +127,12 @@ def make_handler(app: App):
             self._send(404, "introuvable")
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path != "/api/answer":
+            if self.path not in ("/api/answer", "/api/puzzle"):
                 return self._send(404, "introuvable")
             length = int(self.headers.get("Content-Length", "0"))
             try:
                 payload = json.loads(self.rfile.read(length) or b"{}")
-                result = app.answer(payload)
+                result = app.answer(payload) if self.path == "/api/answer" else app.puzzle_result(payload)
             except (ValueError, KeyError, TypeError) as exc:
                 return self._send(400, json.dumps({"ok": False, "error": str(exc)}), "application/json")
             self._send(200, json.dumps(result), "application/json")

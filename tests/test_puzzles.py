@@ -65,3 +65,64 @@ def test_user_rating_reads_last_game(tmp_path):
         " rules, black_elo) VALUES (1, 'u', 'coachtest', 'black', 'a', 'coachtest', '1-0', 'loss', 2, 'p', 10, 'chess', 880)"
     )
     assert user_rating(conn, "coachtest") == 880
+
+
+def test_puzzle_payload_unrolls_sides_and_orientation(tmp_path):
+    from chesscoach.report.puzzle import puzzle_payload
+
+    conn, _ = _conn_with_puzzles(tmp_path)
+    row = conn.execute("SELECT * FROM puzzles WHERE id = '00sVx'").fetchone()
+    pay = puzzle_payload(row, "missed_mate")
+    # 00sVx : 4 demi-coups, le 1er est le coup d'amorce adverse
+    assert [s["side"] for s in pay["steps"]] == ["opponent", "user", "opponent", "user"]
+    assert pay["steps"][0]["san"] == "Qxh6+" and pay["steps"][1]["move"].startswith("g7h6")
+    assert pay["flip"] is True  # l'amorce est un coup blanc : l'utilisateur joue les noirs
+    assert all(s["move"][:4] in {c[:4] for c in s["legal"]} for s in pay["steps"])
+    assert pay["url"].endswith("/training/00sVx") and pay["rating"] == 720
+
+
+def test_puzzle_page_and_empty_state(tmp_path):
+    from chesscoach.report.puzzle import build
+
+    conn, _ = _conn_with_puzzles(tmp_path)
+    page = build(conn, "coachtest", "missed_mate", n=2)
+    assert "__DATA__" in page and "00sVx" in page and "Mat manqué" in page
+    assert "Puzzles · Mat manqué" in page
+    record_attempt(conn, "coachtest", "00sVx", "missed_mate", solved=True, first_try=True)
+    assert "Aucun puzzle disponible" in build(conn, "coachtest", "missed_mate", n=2)
+    assert "Aucun tag à travailler" in build(conn, "coachtest", None, n=2)
+
+
+def test_server_serves_puzzles_and_records_attempt(tmp_path):
+    import json
+    import threading
+    import urllib.request
+
+    from chesscoach.cli.serve import App, serve
+
+    db_path = tmp_path / "srv.sqlite"
+    conn, _ = _conn_with_puzzles(tmp_path)
+    conn.close()
+    import shutil
+
+    shutil.copy(tmp_path / "p.sqlite", db_path)
+    app = App(str(db_path), "coachtest", tmp_path / "learner")
+    server = serve(app, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        page = urllib.request.urlopen(base + "/puzzle/missed_mate").read().decode()
+        assert "00sVx" in page
+        req = urllib.request.Request(
+            base + "/api/puzzle",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+            data=json.dumps({"puzzle_id": "00sVx", "tag": "missed_mate", "solved": True, "first_try": False}).encode(),
+        )
+        res = json.load(urllib.request.urlopen(req))
+        assert res["ok"] and res["due"]
+        conn2 = db.connect(db_path)
+        assert conn2.execute("SELECT solved, first_try FROM puzzle_attempts").fetchone()[:] == (1, 0)
+        assert conn2.execute("SELECT reps FROM tag_schedule WHERE tag = 'missed_mate'").fetchone()[0] == 1
+    finally:
+        server.shutdown()

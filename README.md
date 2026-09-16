@@ -64,6 +64,7 @@ de chaque fichier t'appartient et n'est jamais réécrite).
 python -m chesscoach.puzzles.lichess --min-rating 600 --max-rating 1400 --limit-per-tag 400
 # plan de révision du jour (FSRS sur les tags) + puzzles proposés
 python -m chesscoach.cli.review --username <username>
+# ... ou directement jouables dans le navigateur : http://127.0.0.1:8765/puzzle
 # page de progression : courbe hebdomadaire du motif dans les parties réelles
 python -m chesscoach.report.progress --username <username> --weeks 8
 ```

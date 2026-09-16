@@ -446,3 +446,27 @@ Un test échoue si un autre tag se retrouve sans thème.
 Répartition obtenue : calculation_error 1552, endgame_technique 1019,
 missed_mate 964, king_safety 485, opening_principle 480, hanging_piece 419,
 ignored_threat 413, passive_piece 400.
+
+---
+
+## D-015 — Puzzles jouables dans l'interface, échiquier partagé (2026-09-16, adoptée)
+
+**Choix.**
+- `report/board.py` : l'échiquier SVG interactif (rendu, application d'un coup,
+  glisser-déposer) est **factorisé** et servi aux deux pages. Le JS ne connaît
+  toujours aucune règle d'échecs : positions, coups légaux et solution sont
+  précalculés par python-chess.
+- `report/puzzle.py` : `/puzzle` (tag le plus en retard selon FSRS, sinon le
+  tag le plus fréquent non retiré) et `/puzzle/<tag>`. Le coup d'amorce adverse
+  et les réponses sont joués automatiquement ; un coup faux est refusé avec le
+  SAN du coup tenté et l'essai continue ; « Montrer la solution » compte comme
+  une erreur.
+- Fin de puzzle -> `POST /api/puzzle` : `puzzle_attempts` (résolu, réussi du
+  premier coup) puis `rebuild_schedule` immédiat, et la page affiche la
+  prochaine échéance FSRS.
+
+**Raison.** L'exercice de l'étape 5 se fait sans quitter le coach, et alimente
+directement la courbe par tag (critère de sortie de la phase 3). Vérifié de
+bout en bout dans un navigateur : coup faux refusé, solution acceptée, réponses
+adverses automatiques, tentative enregistrée (`solved=1, first_try=0`) et
+échéance recalculée.
