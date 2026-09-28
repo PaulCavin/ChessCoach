@@ -42,7 +42,7 @@ python -m chesscoach.report --username <username> --time-class rapid --time-cont
 # pages HTML autonomes (échiquiers SVG, flèches, courbe d'éval) pour les 10 dernières parties
 python -m chesscoach.report.html --username <username> --games 10 --out reports/html
 # explication d'un moment critique par le LLM, vérifiée par le critique
-export CHESSCOACH_LLM_PROVIDER=deepseek DEEPSEEK_API_KEY=...   # ou ollama (défaut), anthropic
+cp .env.example .env && nano .env      # DEEPSEEK_API_KEY=... (fichier ignoré par git)
 python -m chesscoach.agents.explainer --game 1287 --ply 55
 ```
 

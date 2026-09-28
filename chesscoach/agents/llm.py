@@ -13,6 +13,8 @@ import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from chesscoach.env import load_dotenv
+
 Message = dict[str, str]
 Chat = Callable[[list[Message]], str]
 
@@ -30,6 +32,7 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls) -> LLMConfig:
+        load_dotenv()
         provider = os.environ.get("CHESSCOACH_LLM_PROVIDER", "deepseek").lower()
         model = os.environ.get("CHESSCOACH_LLM_MODEL") or DEFAULT_MODELS.get(provider, "")
         if provider == "deepseek":
