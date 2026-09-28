@@ -43,7 +43,7 @@ python -m chesscoach.report --username <username> --time-class rapid --time-cont
 python -m chesscoach.report.html --username <username> --games 10 --out reports/html
 # explication d'un moment critique par le LLM, vérifiée par le critique
 cp .env.example .env && nano .env      # DEEPSEEK_API_KEY=... (fichier ignoré par git)
-python -m chesscoach.agents.explainer --game 1287 --ply 55
+python -m chesscoach.agents.explainer            # tous les moments de la dernière partie analysée
 ```
 
 ## Session d'entraînement (serveur local)

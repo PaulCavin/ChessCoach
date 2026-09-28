@@ -1,4 +1,8 @@
-"""Explicateur : faits -> prompt versionné -> LLM -> critique. ``python -m chesscoach.agents.explainer --game 1287 --ply 55``"""
+"""Explicateur : faits -> prompt versionné -> LLM -> critique.
+
+``python -m chesscoach.agents.explainer``            tous les moments de la dernière partie analysée
+``python -m chesscoach.agents.explainer --game 1287``  une partie précise (``--ply`` pour un seul moment)
+"""
 
 from __future__ import annotations
 
@@ -23,23 +27,53 @@ def explain(mf: MomentFacts, chat: Chat) -> tuple[str, Verdict]:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(description="Explique les moments critiques d'une partie (LLM + critique).")
     p.add_argument("--db", default="data/chesscoach.sqlite")
-    p.add_argument("--game", type=int, required=True, help="numéro chronologique de la partie")
-    p.add_argument("--ply", type=int, required=True)
     p.add_argument("--username", default=None)
+    p.add_argument("--game", type=int, help="numéro de la partie (défaut : la dernière analysée)")
+    p.add_argument("--ply", type=int, help="un seul moment (demi-coup) ; défaut : tous les moments critiques")
     args = p.parse_args(argv)
     conn = db.connect(args.db)
-    q = "SELECT id FROM games WHERE game_number = ?" + (" AND username = ?" if args.username else "")
-    row = conn.execute(q, (args.game, args.username) if args.username else (args.game,)).fetchone()
-    mf = build_facts(conn, row["id"], args.ply)
-    print("FAITS :\n" + mf.as_prompt_text() + "\n")
-    raw, verdict = explain(mf, chat_factory())
-    print("BROUILLON LLM :\n" + raw + "\n")
-    print("CRITIQUE :", "accepté" if verdict.accepted else "rejeté -> abstention")
-    for r in verdict.rejected:
-        print("  -", r)
-    print("\nEXPLICATION FINALE :\n" + verdict.explanation)
+    where, params = ["1 = 1"], []
+    if args.username:
+        where.append("g.username = ?")
+        params.append(args.username)
+    if args.game:
+        where.append("g.game_number = ?")
+        params.append(args.game)
+    row = conn.execute(
+        f"SELECT g.id, g.game_number FROM games g JOIN analysed_games a ON a.game_id = g.id"
+        f" WHERE {' AND '.join(where)} ORDER BY g.end_time DESC LIMIT 1",
+        params,
+    ).fetchone()
+    if row is None:
+        print("aucune partie analysée ne correspond", file=sys.stderr)
+        return 1
+    plies = (
+        [args.ply]
+        if args.ply
+        else [
+            r["ply"]
+            for r in conn.execute("SELECT ply FROM critical_moments WHERE game_id = ? ORDER BY ply", (row["id"],))
+        ]
+    )
+    if not plies:
+        print(f"partie n° {row['game_number']} : aucun moment critique")
+        return 0
+    chat = chat_factory()
+    print(f"Partie n° {row['game_number']} — {len(plies)} moment(s) critique(s)")
+    for ply in plies:
+        mf = build_facts(conn, row["id"], ply)
+        print(
+            f"\n{'=' * 70}\nCoup {(ply + 1) // 2}{'.' if ply % 2 else '…'}{mf.played_san}  (meilleur : {mf.best_san})"
+        )
+        print("\nFAITS :\n" + mf.as_prompt_text())
+        raw, verdict = explain(mf, chat)
+        print("\nBROUILLON LLM :\n" + raw)
+        print("\nCRITIQUE :", "accepté" if verdict.accepted else "rejeté -> abstention")
+        for r in verdict.rejected:
+            print("  -", r)
+        print("\nEXPLICATION FINALE :\n" + verdict.explanation)
     return 0
 
 
