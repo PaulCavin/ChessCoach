@@ -39,10 +39,10 @@ def fake_api(sample_pgn_text):
         ),
     ]
     responses = {
-        f"{chesscom.API_BASE}/player/{USERNAME}/games/archives": {
-            "archives": [f"{chesscom.API_BASE}/player/{USERNAME}/games/2025/03"]
+        f"{chesscom.API_BASE}/player/{USERNAME.lower()}/games/archives": {
+            "archives": [f"{chesscom.API_BASE}/player/{USERNAME.lower()}/games/2025/03"]
         },
-        f"{chesscom.API_BASE}/player/{USERNAME}/games/2025/03": {"games": games},
+        f"{chesscom.API_BASE}/player/{USERNAME.lower()}/games/2025/03": {"games": games},
     }
     calls: list[str] = []
 
@@ -51,6 +51,7 @@ def fake_api(sample_pgn_text):
         return json.loads(json.dumps(responses[url]))
 
     fetch.calls = calls
+    fetch.responses = responses
     return fetch
 
 
@@ -98,8 +99,8 @@ def test_ingest_is_idempotent(conn, fake_api):
     chesscom.ingest(conn, USERNAME, fetch=fake_api)
     calls_after_first = len(fake_api.calls)
     assert chesscom.ingest(conn, USERNAME, fetch=fake_api) == 0
-    # Le mois est marqué comme téléchargé : seul l'index des archives est redemandé.
-    assert len(fake_api.calls) == calls_after_first + 1
+    # Index des archives + re-vérification du dernier mois récupéré (parties ajoutées après coup) : 2 appels.
+    assert len(fake_api.calls) == calls_after_first + 2
     assert conn.execute("SELECT count(*) FROM games").fetchone()[0] == 2
     month = conn.execute("SELECT * FROM archive_months").fetchone()
     assert (month["year"], month["month"], month["game_count"]) == (2025, 3, 2)
@@ -123,3 +124,24 @@ def test_cli_main(tmp_path, fake_api, monkeypatch, capsys):
     assert "2025-03 : 2 nouvelle(s) partie(s)" in out
     assert "2 partie(s) au total" in out
     assert db.connect(db_path).execute("SELECT count(*) FROM games").fetchone()[0] == 2
+
+
+def test_last_fetched_month_is_rechecked_even_after_month_rollover(conn, fake_api, sample_pgn_text, monkeypatch):
+    """Récupéré le 15 mars, une partie jouée le 20 mars doit être trouvée lors d'une exécution en avril."""
+    chesscom.ingest(conn, USERNAME, fetch=fake_api)
+    assert conn.execute("SELECT count(*) FROM games").fetchone()[0] == 2
+    # une 3e partie apparaît dans l'archive de mars après coup
+    g1 = split_games(sample_pgn_text)[0].replace("100000000001", "100000000003")
+    extra = make_game_json(g1, "https://www.chess.com/game/live/100000000003", USERNAME, "x", "win", "checkmated")
+    fake_api.responses[f"{chesscom.API_BASE}/player/{USERNAME.lower()}/games/2025/03"]["games"].append(extra)
+
+    class April:
+        year, month = 2025, 4
+
+    monkeypatch.setattr(
+        chesscom,
+        "datetime",
+        type("D", (), {"now": staticmethod(lambda tz=None: April()), "fromtimestamp": chesscom.datetime.fromtimestamp}),
+    )
+    assert chesscom.ingest(conn, USERNAME, fetch=fake_api) == 1
+    assert conn.execute("SELECT count(*) FROM games").fetchone()[0] == 3

@@ -46,7 +46,7 @@ def fetch_json(url: str, *, retries: int = 3, backoff: float = 2.0) -> dict[str,
 
 def list_archives(username: str, fetch: FetchJson = fetch_json) -> list[tuple[int, int]]:
     """Retourne les (année, mois) disponibles, triés chronologiquement."""
-    data = fetch(f"{API_BASE}/player/{username}/games/archives")
+    data = fetch(f"{API_BASE}/player/{username.lower()}/games/archives")
     months = []
     for url in data.get("archives", []):
         year, month = url.rstrip("/").split("/")[-2:]
@@ -55,7 +55,7 @@ def list_archives(username: str, fetch: FetchJson = fetch_json) -> list[tuple[in
 
 
 def fetch_month(username: str, year: int, month: int, fetch: FetchJson = fetch_json) -> list[dict[str, Any]]:
-    data = fetch(f"{API_BASE}/player/{username}/games/{year}/{month:02d}")
+    data = fetch(f"{API_BASE}/player/{username.lower()}/games/{year}/{month:02d}")
     return data.get("games", [])
 
 
@@ -172,12 +172,16 @@ def ingest(
         (r["year"], r["month"])
         for r in conn.execute("SELECT year, month FROM archive_months WHERE username = ?", (username,))
     }
+    # Un mois déjà récupéré peut avoir reçu des parties après coup (récupéré le 15, parties jouées le 20).
+    # On re-vérifie donc le mois courant ET tout mois à partir du dernier mois récupéré.
+    latest_done = max(done) if done else None
     total = 0
     for year, month in list_archives(username, fetch):
         if (lo and (year, month) < lo) or (hi and (year, month) > hi):
             continue
         is_current = (year, month) == (now.year, now.month)
-        if (year, month) in done and not (is_current and refetch_current_month):
+        is_tail = latest_done is not None and (year, month) >= latest_done
+        if (year, month) in done and not ((is_current or is_tail) and refetch_current_month):
             continue
         n = ingest_month(conn, username, year, month, fetch)
         total += n
