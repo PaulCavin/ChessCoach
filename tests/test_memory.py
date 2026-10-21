@@ -133,3 +133,21 @@ def test_old_v5_database_gets_kind_column(tmp_path):
     conn = db.connect(path)
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(learner_events)")}
     assert "kind" in cols and conn.execute("SELECT version FROM schema_version").fetchone()[0] == db.SCHEMA_VERSION
+
+
+def test_server_serves_pwa_assets(tmp_path):
+    import threading
+    import urllib.request
+
+    _setup(tmp_path / "pwa.sqlite")
+    app = App(str(tmp_path / "pwa.sqlite"), "coachtest", tmp_path / "learner")
+    server = serve(app, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        assert b'"display": "standalone"' in urllib.request.urlopen(base + "/manifest.webmanifest").read()
+        assert b"fetch" in urllib.request.urlopen(base + "/sw.js").read()
+        assert b"<svg" in urllib.request.urlopen(base + "/icon.svg").read()
+        assert 'rel="manifest"' in urllib.request.urlopen(base + "/").read().decode()
+    finally:
+        server.shutdown()

@@ -14,10 +14,10 @@ import sqlite3
 import chess
 
 from chesscoach.memory.fsrs import due_tags, load_card
+from chesscoach.puzzles.select import pick
 from chesscoach.report.board import BOARD_JS, legal_moves, piece_symbols
 from chesscoach.report.html import CSS
 from chesscoach.report.render import TAG_LABEL
-from chesscoach.puzzles.select import pick
 from chesscoach.taxonomy.tags import Tag
 
 JS = """

@@ -116,8 +116,10 @@ def test_calculation_error_is_the_fallback_and_time_pressure_is_secondary():
 def test_classify_game_end_to_end_without_engine(sample_pgn_text):
     """Évals fabriquées à la main sur le mat de Légal : 5... Bxd1?? est une gaffe tactique (la réponse 6. Bxf7+
     est une capture avec échec, donc ni pièce pendue ni sécurité du roi) -> calculation_error."""
-    import chess.pgn
     import io
+
+    import chess.pgn
+
     from chesscoach import db
     from chesscoach.engine.analyse import store_evals
     from chesscoach.engine.analysis import PositionEval

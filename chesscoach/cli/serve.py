@@ -20,8 +20,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from chesscoach import db
-from chesscoach.memory.learner import Answer, record_answer, sync_markdown
 from chesscoach.memory.fsrs import load_card
+from chesscoach.memory.learner import Answer, record_answer, sync_markdown
 from chesscoach.memory.progress import rebuild_schedule
 from chesscoach.puzzles.select import record_attempt
 from chesscoach.report.html import game_page, index_page
@@ -97,6 +97,17 @@ class App:
         return {"ok": True, "event_id": event_id, "files": [str(f) for f in files]}
 
 
+MANIFEST = """{"name": "ChessCoach", "short_name": "ChessCoach", "start_url": "/", "display": "standalone",
+"background_color": "#141412", "theme_color": "#141412", "lang": "fr",
+"icons": [{"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]}"""
+SERVICE_WORKER = "self.addEventListener('fetch', () => {});"  # requis pour « Ajouter à l'écran d'accueil »
+ICON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#769656"/>'
+    '<rect x="8" y="8" width="24" height="24" fill="#eeeed2"/><rect x="32" y="32" width="24" height="24" fill="#eeeed2"/>'
+    '<text x="32" y="44" font-size="30" text-anchor="middle" fill="#1b1b1b">♞</text></svg>'
+)
+
+
 def make_handler(app: App):
     class Handler(BaseHTTPRequestHandler):
         def _send(self, code: int, body: str, ctype: str = "text/html; charset=utf-8") -> None:
@@ -107,7 +118,7 @@ def make_handler(app: App):
             self.end_headers()
             self.wfile.write(data)
 
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             if self.path in ("/", "/index.html"):
                 return self._send(200, app.index())
             if self.path in ("/progress", "/progress.html"):
@@ -115,6 +126,12 @@ def make_handler(app: App):
             if self.path == "/puzzle" or self.path.startswith("/puzzle/"):
                 tag = self.path[8:] or None
                 return self._send(200, app.puzzles(tag))
+            if self.path == "/manifest.webmanifest":
+                return self._send(200, MANIFEST, "application/manifest+json")
+            if self.path == "/sw.js":
+                return self._send(200, SERVICE_WORKER, "application/javascript")
+            if self.path == "/icon.svg":
+                return self._send(200, ICON, "image/svg+xml")
             if self.path == "/api/ping":
                 return self._send(200, '{"ok": true}', "application/json")
             if self.path.startswith("/game/"):
@@ -126,7 +143,7 @@ def make_handler(app: App):
                 return self._send(200, page) if page else self._send(404, "partie non analysée")
             self._send(404, "introuvable")
 
-        def do_POST(self) -> None:  # noqa: N802
+        def do_POST(self) -> None:
             if self.path not in ("/api/answer", "/api/puzzle"):
                 return self._send(404, "introuvable")
             length = int(self.headers.get("Content-Length", "0"))

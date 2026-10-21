@@ -22,6 +22,10 @@ from chesscoach.engine.analysis import move_losses
 from chesscoach.report.board import BOARD_JS, legal_moves, piece_symbols
 from chesscoach.report.render import TAG_LABEL
 
+PWA_HEAD = (
+    '<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#141412">'
+    '<link rel="icon" href="/icon.svg"><script>navigator.serviceWorker&&navigator.serviceWorker.register("/sw.js")</script>'
+)
 SEV_FR = {"blunder": "Gaffe", "mistake": "Erreur", "inaccuracy": "Imprécision"}
 
 CSS = """
@@ -289,7 +293,7 @@ def index_page(games: list[sqlite3.Row], username: str, served: bool = False) ->
             f'<td class="{g["user_result"]}">{g["user_result"]}</td><td class="dots">{"".join(f"<i style=background:{SEV_COLOR[s]}></i>" for s in (g["sevs"] or "").split(",") if s)}</td></tr>'
         )
     return f"""<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ChessCoach — {html.escape(username)}</title><style>{CSS}</style><body><div class="wrap">
+<title>ChessCoach — {html.escape(username)}</title>{PWA_HEAD if served else ""}<style>{CSS}</style><body><div class="wrap">
 <div class="top"><h1>Bilans de parties · {html.escape(username)}</h1><span>{'<a href="/puzzle">Puzzles</a> · ' if served else ""}<a href="{"/progress" if served else "progress.html"}">Progression par tag →</a></span></div>
 <div class="meta">{len(games)} dernières parties analysées</div>
 <div class="card" style="padding:0;overflow:auto"><table class="idx"><tr><th>Partie</th><th>Date</th><th>Couleur</th><th>Adversaire</th><th>Résultat</th><th>Moments critiques</th></tr>{"".join(rows)}</table></div>

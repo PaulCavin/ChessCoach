@@ -13,6 +13,24 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+## Tout mettre à jour en une commande
+
+```bash
+sh scripts/install_stockfish.sh                     # une fois : Stockfish 17.1 selon l'architecture
+python -m chesscoach.cli.update --username <username>   # ingestion -> analyse des nouvelles parties -> classification -> bilans
+python -m chesscoach.cli.serve --username <username>    # http://127.0.0.1:8765/
+```
+
+## Sur Android (Termux) — hébergé sur le téléphone
+
+```bash
+pkg install git && git clone <ce dépôt> && cd ChessCoach
+sh scripts/install_termux.sh
+```
+Puis `.env` (clé DeepSeek), `update --limit 20` (≈ 1 min par partie sur ARM), `serve`, et dans Chrome
+« Ajouter à l'écran d'accueil » : la page est une PWA (icône, plein écran). Termux doit rester ouvert
+pendant la session.
+
 ## Ingestion des parties Chess.com
 
 ```bash

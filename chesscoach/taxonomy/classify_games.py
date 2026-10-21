@@ -14,8 +14,8 @@ from collections.abc import Iterable
 import chess
 
 from chesscoach import db
-from chesscoach.engine.analysis import CRITICAL_CP, CriticalMoment, critical_moments, move_losses
 from chesscoach.engine.analyse import load_evals
+from chesscoach.engine.analysis import CRITICAL_CP, CriticalMoment, critical_moments, move_losses
 from chesscoach.taxonomy.classify import OPENING_MAX_PLY, Classification, MomentContext, classify, is_endgame
 
 

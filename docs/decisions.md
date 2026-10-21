@@ -470,3 +470,34 @@ directement la courbe par tag (critère de sortie de la phase 3). Vérifié de
 bout en bout dans un navigateur : coup faux refusé, solution acceptée, réponses
 adverses automatiques, tentative enregistrée (`solved=1, first_try=0`) et
 échéance recalculée.
+
+
+---
+
+## D-016 — Hébergement sur téléphone : Termux d'abord, appli JavaScript ensuite (2026-10-21, validée)
+
+**Contexte.** L'utilisateur veut une version exploitable sur mobile, hébergée
+sur le téléphone. Deux lectures : faire tourner le code existant sur Android
+(Termux), ou l'appli « tout côté client » de la phase 4 (Stockfish WASM,
+règles en JS, IndexedDB). Zéro session réelle à ce jour.
+
+**Choix (validé par l'utilisateur).** Les deux, dans cet ordre :
+1. **Termux maintenant** — aucune réécriture : `scripts/install_termux.sh`
+   (`pkg install stockfish`, venv, `.env`), `scripts/install_stockfish.sh`
+   (binaire officiel selon l'architecture : x86-64 avx2 / android-armv8 /
+   armv7), commande unique `chesscoach.cli.update` (ingestion → analyse des
+   parties manquantes → classification → bilans, tolérante au réseau absent),
+   et manifeste PWA servi par `serve.py` pour l'icône plein écran. Limites
+   assumées : Android seulement, Termux ouvert pendant la session.
+2. **Appli JavaScript ensuite**, après usage réel, avec les évolutions
+   décidées d'ici là. Contraintes déjà connues : deux implémentations de
+   l'oracle (python-chess + Stockfish natif / chess.js + Stockfish WASM) à
+   garder identiques via le jeu d'évaluation ; Stockfish WASM 3 à 5 fois plus
+   lent (analyser seulement les nouvelles parties, à la demande) ; mémoire
+   Markdown exportée plutôt qu'écrite sur disque ; sous-ensemble de puzzles
+   embarqué (quelques Mo) ; clé d'API stockée sur l'appareil.
+
+**Raison.** Obtenir les trois mois d'usage réel exigés par le brief avant la
+phase 4 avec le code testé, plutôt que réécrire 3 000 lignes pour une boucle
+jamais utilisée. Mesure incidente (2026-10-01) : la reconstruction complète du
+corpus depuis un conteneur vierge tient en deux commandes.
