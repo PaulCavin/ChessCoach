@@ -40,13 +40,16 @@ la fluidité de la prose.
 
 ## Installation
 
-Prérequis : Python 3.11+, et c'est tout (Stockfish est téléchargé par le script).
+Prérequis : **Python 3.11 ou plus récent** (Stockfish est téléchargé par le script). Vérifiez avec
+`python3 --version` ; sur macOS le Python fourni avec Xcode est trop ancien — installez-en un via
+[Homebrew](https://brew.sh) (`brew install python@3.12`) ou python.org, puis utilisez `python3.12`
+dans les commandes ci-dessous. Sous zsh (macOS), ne collez pas les commentaires `# …` de fin de ligne.
 
 ```bash
 git clone https://github.com/PaulCavin/ChessCoach && cd ChessCoach
-python -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-sh scripts/install_stockfish.sh            # Stockfish 17.1 pour votre architecture
+sh scripts/install_stockfish.sh            # Stockfish 17.1 : Linux, macOS (Intel/Apple Silicon), Termux
 cp .env.example .env                        # clé d'API du LLM (facultatif, fichier ignoré par git)
 ```
 
