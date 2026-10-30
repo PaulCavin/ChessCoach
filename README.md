@@ -1,107 +1,153 @@
 # ChessCoach
 
-Coach d'échecs personnalisé, opensource, local et gratuit, construit à partir de
-vos parties Chess.com. Principe non négociable : **le LLM formule, il ne juge
-jamais** — chaque fait sur une position vient de Stockfish ou de python-chess.
+**Un coach d'échecs personnel, local et gratuit, construit sur vos propres parties.**
 
-État : **phase 1 — analyse** (moteur, classification, rapport agrégé sans LLM).
+ChessCoach télécharge vos parties Chess.com, les fait analyser par Stockfish, repère les
+moments où la partie a basculé, les classe dans une taxonomie fixe de dix types d'erreurs,
+puis vous les fait **rejouer avant de vous donner le verdict**. Ce que vous ratez revient en
+exercices (la position rejouée, des puzzles Lichess du même thème) et en rappels espacés,
+jusqu'à ce que le motif disparaisse de vos vraies parties.
+
+Conçu pour un joueur de club ou de loisir (~900 Elo, cadence 10 min), mais rien n'est
+spécifique à ce niveau.
+
+## Le principe non négociable
+
+**Le modèle de langage formule, il ne juge jamais.** Toute affirmation sur une position —
+évaluation, meilleur coup, pièce en prise, échec, menace — vient de Stockfish ou d'un calcul
+python-chess. Le LLM ne reçoit jamais l'échiquier : seulement une liste de faits déjà
+vérifiés, qu'il doit reformuler en français. Un critique **écrit en code** rejette toute phrase
+qui n'est pas rattachée à un fait, cite un coup non fourni ou emploie un jugement de style
+(« passif », « évident »…). Si le texte ne passe pas, le coach dit « voici la ligne, je ne sais
+pas mieux l'expliquer » plutôt que d'inventer.
+
+Conséquence pratique : **le coach fonctionne intégralement sans LLM**. Le modèle n'ajoute que
+la fluidité de la prose.
+
+## Ce que fait une session (15 minutes, une partie)
+
+1. **Sélection** — Stockfish (profondeur 14) évalue chaque position ; les coups qui perdent au
+   moins un pion d'avantage sont retenus, les 4 pires par partie.
+2. **Raisonnement d'abord** — la position s'affiche sans verdict. Vous notez votre plan, votre
+   confiance (0-100), et vous jouez votre coup sur l'échiquier.
+3. **Verdict** — « ton coup mène à X, le meilleur coup mène à Y », X et Y tirés des lignes
+   moteur, texte vérifié par le critique.
+4. **Diagnostic** — le type d'erreur (pièce pendue, menace ignorée, sécurité du roi…) et votre
+   réponse sont écrits dans votre mémoire d'apprenant.
+5. **Exercice immédiat** — rejouer la partie deux coups avant, ou un puzzle Lichess du même thème.
+6. **Rappel espacé** — un planificateur FSRS révise chaque type d'erreur ; un type est considéré
+   acquis quand votre réussite dépasse 80 % **et** que le motif recule dans vos parties réelles.
 
 ## Installation
 
+Prérequis : Python 3.11+, et c'est tout (Stockfish est téléchargé par le script).
+
 ```bash
+git clone https://github.com/PaulCavin/ChessCoach && cd ChessCoach
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
+sh scripts/install_stockfish.sh            # Stockfish 17.1 pour votre architecture
+cp .env.example .env                        # clé d'API du LLM (facultatif, fichier ignoré par git)
 ```
 
-## Tout mettre à jour en une commande
+### Sur un téléphone Android (Termux)
 
-```bash
-sh scripts/install_stockfish.sh                     # une fois : Stockfish 17.1 selon l'architecture
-python -m chesscoach.cli.update --username <username>   # ingestion -> analyse des nouvelles parties -> classification -> bilans
-python -m chesscoach.cli.serve --username <username>    # http://127.0.0.1:8765/
-```
-
-## Sur Android (Termux) — hébergé sur le téléphone
+Le coach tourne entièrement sur le téléphone, sans serveur distant.
 
 ```bash
 pkg install -y git && git clone https://github.com/PaulCavin/ChessCoach && cd ChessCoach
 sh scripts/install_termux.sh
 ```
-Puis `.env` (clé DeepSeek), `update --limit 20` (≈ 1 min par partie sur ARM), `serve`, et dans Chrome
-« Ajouter à l'écran d'accueil » : la page est une PWA (icône, plein écran). Termux doit rester ouvert
-pendant la session.
 
-## Ingestion des parties Chess.com
+Puis les commandes ci-dessous ; dans Chrome, « Ajouter à l'écran d'accueil » installe la page
+comme une appli. Comptez ~1 min d'analyse par partie sur ARM : commencez par `update --limit 20`.
+Termux doit rester ouvert pendant la session (notification → « Acquire wakelock »).
+
+## Utilisation
 
 ```bash
-python -m chesscoach.ingest.chesscom <username> --db data/chesscoach.sqlite
-python -m chesscoach.ingest.chesscom <username> --since 2025-01 --until 2025-06
+python -m chesscoach.cli.update --username <pseudo>   # parties, analyse, classification, bilans
+python -m chesscoach.cli.serve  --username <pseudo>   # http://127.0.0.1:8765/
 ```
 
-Chaque mois d'archive est téléchargé une seule fois (table `archive_months`) ;
-relancer la commande ne crée pas de doublons.
+`update` ne refait que ce qui manque : relancez-la après chaque partie. `serve` n'écoute que sur
+votre machine (`127.0.0.1`). Les pages :
 
-## Analyse moteur et rapport
+| Page | Contenu |
+|---|---|
+| `/` | vos dernières parties analysées |
+| `/game/<n>` | bilan interactif : échiquier jouable, courbe d'éval, moments critiques, mode « à toi de jouer », exercice |
+| `/puzzle` | puzzles Lichess du type d'erreur le plus en retard, résolus dans l'échiquier |
+| `/progress` | courbe hebdomadaire de chaque type d'erreur dans vos parties réelles, état FSRS |
 
-Stockfish : binaire dans `bin/stockfish-bin` (ou `$CHESSCOACH_STOCKFISH`, ou dans le PATH).
-
-```bash
-# 1. une éval Stockfish par position (profondeur 14, 4 processus), idempotent
-python -m chesscoach.engine.analyse --username <username> --time-class rapid --time-control 600 --workers 4
-# 2. moments critiques classés dans la taxonomie (recalculé à chaque fois)
-python -m chesscoach.taxonomy.classify_games --username <username>
-# 3. rapport Markdown
-python -m chesscoach.report --username <username> --time-class rapid --time-control 600 --out reports/<username>.md
-```
-
-## Bilan visuel et explications
+Autres commandes utiles :
 
 ```bash
-# pages HTML autonomes (échiquiers SVG, flèches, courbe d'éval) pour les 10 dernières parties
-python -m chesscoach.report.html --username <username> --games 10 --out reports/html
-# explication d'un moment critique par le LLM, vérifiée par le critique
-cp .env.example .env && nano .env      # DEEPSEEK_API_KEY=... (fichier ignoré par git)
-python -m chesscoach.agents.explainer            # tous les moments de la dernière partie analysée
-```
-
-## Session d'entraînement (serveur local)
-
-```bash
-python -m chesscoach.cli.serve --username <username>      # http://127.0.0.1:8765/
-```
-
-Sur chaque moment critique : note ton plan et ta confiance, joue ton coup sur l'échiquier,
-puis le verdict s'affiche. Tes réponses vont dans SQLite (`learner_events`) et dans
-`memory/learner/` (Markdown à frontmatter, compatible Obsidian ; la section « Notes »
-de chaque fichier t'appartient et n'est jamais réécrite).
-
-## Puzzles et rappel espacé (phase 3)
-
-```bash
-# import filtré de la base Lichess (CC0) : thèmes de la taxonomie + plage de cote, en flux
 python -m chesscoach.puzzles.lichess --min-rating 600 --max-rating 1400 --limit-per-tag 400
-# plan de révision du jour (FSRS sur les tags) + puzzles proposés
-python -m chesscoach.cli.review --username <username>
-# ... ou directement jouables dans le navigateur : http://127.0.0.1:8765/puzzle
-# page de progression : courbe hebdomadaire du motif dans les parties réelles
-python -m chesscoach.report.progress --username <username> --weeks 8
+                                                   # base Lichess CC0, filtrée en flux (~2 500 puzzles, 1 Mo)
+python -m chesscoach.cli.review   --username <pseudo>   # plan de révision du jour (FSRS)
+python -m chesscoach.report       --username <pseudo> --time-class rapid --time-control 600
+                                                   # rapport agrégé Markdown, sans LLM
+python -m chesscoach.agents.explainer                 # explications LLM + critique, dernière partie
 ```
 
-## Requêter le corpus
+### Le LLM (facultatif)
 
-```bash
-sqlite3 data/chesscoach.sqlite \
-  "select time_class, count(*) from games group by time_class;"
+Par défaut DeepSeek via API ; Ollama (local) et Anthropic sont supportés. Configuration dans
+`.env` : `CHESSCOACH_LLM_PROVIDER` (`deepseek` | `ollama` | `anthropic`), `CHESSCOACH_LLM_MODEL`,
+et la clé correspondante. Seule la liste de faits (évaluations, coups) est envoyée à l'API —
+jamais le PGN complet ni des données personnelles.
+
+## Votre mémoire d'apprenant
+
+`memory/learner/` contient des fichiers Markdown à frontmatter YAML, lisibles dans Obsidian ou
+n'importe quel éditeur : une note par type d'erreur (occurrences, réussite, état FSRS, prochaine
+révision), une note par session, un profil. Chaque fichier se termine par une section `## Notes`
+qui **vous appartient** : le programme la relit et ne la réécrit jamais. Les données de
+référence sont dans SQLite (`data/chesscoach.sqlite`, un seul fichier à sauvegarder).
+
+## La taxonomie
+
+Dix types d'erreurs, figés, alignés sur les thèmes de puzzles Lichess :
+`hanging_piece`, `missed_mate`, `ignored_threat`, `unnecessary_exchange`, `king_safety`,
+`passive_piece`, `opening_principle`, `endgame_technique`, `calculation_error`, `time_pressure`.
+Chaque type est attribué par une règle python-chess vérifiable position par position
+(`chesscoach/taxonomy/classify.py`) ; ajouter ou renommer un type est une décision documentée.
+
+## Architecture
+
+```
+chesscoach/
+  ingest/      API Chess.com → SQLite (parties, coups, horloges)
+  engine/      Stockfish, éval par position, moments critiques
+  taxonomy/    les 10 types d'erreurs et leurs règles déterministes
+  agents/      faits → prompt versionné → LLM → critique (code)
+  memory/      mémoire d'apprenant Markdown, FSRS, sortie d'un type
+  puzzles/     import Lichess filtré, sélection par type
+  report/      rapport Markdown, bilans HTML, échiquier interactif, progression
+  eval/        jeu d'évaluation : affirmations à accepter / rejeter
+  cli/         update, serve, review
+docs/decisions.md   journal de toutes les décisions de conception (contexte, options, choix, raison)
 ```
 
-## Tests
+Chaque module est utilisable seul et testé sans LLM, sans réseau et (sauf un test) sans Stockfish :
 
 ```bash
 pytest
 ```
 
-Les tests tournent sans LLM et sans réseau ; un seul test utilise Stockfish et est sauté s'il est absent.
+## État du projet
 
-## Documentation
+Les phases 0 à 3 du plan (corpus, analyse, boucle, exercices) sont implémentées et tournent
+en local. La phase 4 — une application tout côté client (Stockfish WASM) — attend d'abord
+plusieurs mois d'usage réel de la boucle. Historique et raisons dans `docs/decisions.md`.
 
-- `docs/decisions.md` — journal des décisions de conception (taxonomie, schéma…).
+## Crédits et licence
+
+[Stockfish](https://stockfishchess.org) (GPL v3, binaire téléchargé séparément),
+[python-chess](https://python-chess.readthedocs.io) (GPL v3),
+[base de puzzles Lichess](https://database.lichess.org/#puzzles) (CC0),
+[API publique Chess.com](https://www.chess.com/news/view/published-data-api).
+Planificateur [FSRS](https://github.com/open-spaced-repetition/fsrs4anki/wiki) réimplémenté.
+
+Code sous licence MIT — voir `LICENSE`.
