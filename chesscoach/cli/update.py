@@ -39,7 +39,12 @@ def main(argv=None) -> int:
     try:
         added = ingest(conn, a.username, log=lambda m: print("   ", m))
     except (OSError, ValueError) as exc:  # réseau absent ou réponse illisible : on continue hors ligne
-        print(f"    ingestion impossible ({exc.__class__.__name__}) : on continue hors ligne")
+        reason = getattr(exc, "reason", exc)
+        print(f"    ingestion impossible : {exc.__class__.__name__} — {reason}")
+        if "CERTIFICATE" in str(reason).upper():
+            print("    -> certificats TLS manquants. Sur macOS (Python de python.org) : lancer une fois")
+            print('       open "/Applications/Python 3.12/Install Certificates.command"')
+        print("    on continue hors ligne")
         added = 0
     print(f"    {added} nouvelle(s) partie(s)")
 
