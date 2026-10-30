@@ -1,0 +1,9 @@
+PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningTags
+00sHx,q3k1nr/1pp1nQpp/3p4/1P2p3/4P3/B1PP1b2/B5PP/5K1R w k - 0 17,e8d7 a2e6 d7d8 f7f8,1760,80,93,4123,mate mateIn2 short,https://lichess.org/yyznGmXs/black#34,
+00sJ9,r3r1k1/p4ppp/2p2n2/1p6/3P1qb1/2NQR3/PPB2PP1/R1B3K1 w - - 5 18,e3g3 e8e1 g1h2 e1c1 a1c1 f4h6 h2g1 h6c1,900,80,97,15544,advantage attraction fork middlegame sacrifice,https://lichess.org/gyFeQsMH#35,
+00sO1,1k1r4/pp3pp1/2p1p3/4b3/P3n1P1/8/KPP2PN1/3rBR1R b - - 2 31,b8c7 e1a5 b7b6 f1d1,1160,74,97,1602,advantage discoveredAttack master middlegame short,https://lichess.org/vsQRU4tJ/black#62,
+00sVx,3r1r1k/1p3pp1/p1nQ3p/8/1P6/P1PB4/5PPP/R4RK1 w - - 1 22,d6h6 g7h6 d3g6 h8g7,720,76,95,9013,hangingPiece mate mateIn2 short,https://lichess.org/n8Ff742v#43,
+00sYh,r2qr1k1/b1p2ppp/pp4n1/P1P1p3/4P1n1/B2P2Pb/3NBP1P/RN1QR1K1 b - - 1 16,g4f2 e2h5 f2h3 h5g6 h3f2 g6f7 g8h8 f7e8,1100,75,98,7614,attraction defensiveMove middlegame sacrifice,https://lichess.org/4MWQCxQ6/black#32,
+00sn2,8/6pk/5p1p/8/1P6/P1r2P1P/5KP1/2R5 w - - 3 42,f2e2 c3c1 e2d2 c1c3,650,90,92,3319,endgame rookEndgame short,https://lichess.org/0YxYHKfQ#83,
+00tTz,5rk1/pp3ppp/8/8/8/1P3N2/P4PPP/3R2K1 b - - 0 24,f8e8 d1d8 e8d8 f3d8,1500,80,90,500,exposedKing kingsideAttack middlegame,https://lichess.org/xxx#48,
+00zzz,8/8/8/8/8/8/8/8 w - - 0 1,a1a2,800,80,90,100,zugzwang quietMove,https://lichess.org/none#1,
