@@ -24,7 +24,7 @@ python -m chesscoach.cli.serve --username <username>    # http://127.0.0.1:8765/
 ## Sur Android (Termux) — hébergé sur le téléphone
 
 ```bash
-pkg install git && git clone <ce dépôt> && cd ChessCoach
+pkg install -y git && git clone https://github.com/PaulCavin/ChessCoach && cd ChessCoach
 sh scripts/install_termux.sh
 ```
 Puis `.env` (clé DeepSeek), `update --limit 20` (≈ 1 min par partie sur ARM), `serve`, et dans Chrome

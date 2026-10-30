@@ -501,3 +501,12 @@ règles en JS, IndexedDB). Zéro session réelle à ce jour.
 phase 4 avec le code testé, plutôt que réécrire 3 000 lignes pour une boucle
 jamais utilisée. Mesure incidente (2026-10-01) : la reconstruction complète du
 corpus depuis un conteneur vierge tient en deux commandes.
+
+
+**Note (2026-10-21, reconstruction complète).** À profondeur fixe, Stockfish
+n'est pas strictement reproductible d'une machine à l'autre (ordonnancement
+des threads, table de hachage) : la reconstruction du corpus a donné 2090
+moments critiques contre 2105 auparavant, soit ~0,7 % de coups à la frontière
+des 100 cp qui changent de côté. Sans effet sur l'usage ; à garder en tête
+pour le jeu d'évaluation (comparer des verdicts, pas des centipions exacts) et
+pour la future appli JavaScript (Stockfish WASM donnera des écarts du même ordre).
